@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: skillledger
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt && npm install --prefix client && npm run build --prefix client
+    startCommand: python run.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: PORT
+        value: 10000
+    disk:
+      name: skillledger-data
+      mountPath: /var/data
+      sizeGB: 1
