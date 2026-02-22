@@ -2,14 +2,10 @@ import aiosqlite
 import os
 from app.config import get_settings
 
-_db_connection = None
-
 
 async def get_db():
     settings = get_settings()
-    db_path = settings.db_path
-    if not db_path:
-        db_path = "/var/data/skillledger.db" if settings.environment == "production" else "./skillledger.db"
+    db_path = settings.db_path or "./skillledger.db"
 
     db = await aiosqlite.connect(db_path)
     db.row_factory = aiosqlite.Row
@@ -27,11 +23,8 @@ async def get_db():
 
 async def init_db():
     settings = get_settings()
-    db_path = settings.db_path
-    if not db_path:
-        db_path = "/var/data/skillledger.db" if settings.environment == "production" else "./skillledger.db"
+    db_path = settings.db_path or "./skillledger.db"
 
-    # Ensure directory exists
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
 
     async with aiosqlite.connect(db_path) as db:

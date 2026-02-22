@@ -16,7 +16,5 @@ services:
         sync: false
       - key: PORT
         value: 10000
-    disk:
-      name: skillledger-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: DB_PATH
+        value: /tmp/skillledger.db
