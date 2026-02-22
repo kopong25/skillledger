@@ -12,3 +12,4 @@ cachetools==5.3.3
 pydantic==2.6.4
 pydantic-settings==2.2.1
 slowapi==0.1.9
+pydantic-core==2.16.3
