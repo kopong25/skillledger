@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import get_settings
 
@@ -38,13 +38,8 @@ async def get_current_user(
 ) -> dict:
     try:
         payload = decode_token(credentials.credentials)
-        user_id: Optional[int] = payload.get("id")
-        if user_id is None:
+        if payload.get("id") is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return payload
     except JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
