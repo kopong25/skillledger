@@ -15,22 +15,26 @@ async function request(path, options = {}) {
     },
   });
 
-  const data = await res.json().catch(() => ({ error: 'Unexpected server response' }));
+  let data;
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    throw new Error(`Server error (${res.status}): ${text.slice(0, 100)}`);
+  }
 
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    throw new Error(data.detail || data.error || `Request failed (${res.status})`);
   }
 
   return data;
 }
 
 export const api = {
-  // Auth
   register: (body) => request('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request('/auth/me'),
-
-  // Candidates
   analyze: (username) => request('/candidates/analyze', { method: 'POST', body: JSON.stringify({ username }) }),
   getCandidate: (username) => request(`/candidates/${username}`),
   getSaved: () => request('/candidates/saved'),
