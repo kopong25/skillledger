@@ -1,8 +1,6 @@
 import asyncio
-import math
-import re
+import json
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 from cachetools import TTLCache
 from github import Github, GithubException, UnknownObjectException
 from app.config import get_settings
@@ -10,7 +8,6 @@ from app.config import get_settings
 # In-memory cache: 1 hour TTL, max 500 entries
 _cache = TTLCache(maxsize=500, ttl=3600)
 
-# Framework signals: maps framework name → list of dependency/topic keywords
 FRAMEWORK_SIGNALS: dict[str, list[str]] = {
     "React":        ["react", "react-dom", "next", "gatsby", "create-react-app"],
     "Vue.js":       ["vue", "nuxt", "quasar", "@vue/"],
@@ -130,14 +127,15 @@ async def fetch_and_analyze_skills(username: str) -> dict:
         gh = _get_github_client()
         user = gh.get_user(username)
 
-        # Fetch up to 100 non-fork repos sorted by push date
-        repos = [r for r in user.get_repos(sort="pushed", type="owner") if not r.fork][:100]
+        # Limit to 20 repos max (was 100 fetched, 30 analyzed)
+        repos = [r for r in user.get_repos(sort="pushed", type="owner") if not r.fork][:20]
 
         now = datetime.now(timezone.utc)
         language_stats: dict[str, dict] = {}
         frameworks_detected: set[str] = set()
 
-        for repo in repos[:30]:
+        # Analyze only top 10 repos (was 30) — reduces API calls significantly
+        for repo in repos[:10]:
             try:
                 pushed = repo.pushed_at or repo.created_at
                 if pushed.tzinfo is None:
@@ -160,55 +158,22 @@ async def fetch_and_analyze_skills(username: str) -> dict:
                     if pushed > language_stats[lang]["last_used"]:
                         language_stats[lang]["last_used"] = pushed
 
-                # Detect frameworks from topics + description
+                # Detect frameworks from topics + description only (no file fetching)
                 topics = repo.topics or []
                 desc = (repo.description or "").lower()
                 combined = " ".join(topics) + " " + desc
-
                 for framework, signals in FRAMEWORK_SIGNALS.items():
                     if any(s.lower() in combined for s in signals):
                         frameworks_detected.add(framework)
 
-                # Inspect package.json or requirements.txt
-                primary_lang = (
-                    max(langs.items(), key=lambda x: x[1])[0]
-                    if langs else None
-                )
-                try:
-                    if primary_lang in ("JavaScript", "TypeScript"):
-                        content = repo.get_contents("package.json")
-                        import json
-                        pkg = json.loads(content.decoded_content)
-                        deps = {
-                            **pkg.get("dependencies", {}),
-                            **pkg.get("devDependencies", {}),
-                        }
-                        for framework, signals in FRAMEWORK_SIGNALS.items():
-                            if any(
-                                any(s.lower() in dep.lower() for dep in deps)
-                                for s in signals
-                            ):
-                                frameworks_detected.add(framework)
-                    elif primary_lang == "Python":
-                        try:
-                            content = repo.get_contents("requirements.txt")
-                            req_text = content.decoded_content.decode().lower()
-                            for framework, signals in FRAMEWORK_SIGNALS.items():
-                                if any(s.lower() in req_text for s in signals):
-                                    frameworks_detected.add(framework)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-
             except Exception:
                 continue
 
-        # Commit activity for top repos (last 12 months)
+        # Commit activity — only top 5 repos (was 10)
         commit_activity: dict[str, int] = {}
         one_year_ago = now - timedelta(days=365)
 
-        for repo in repos[:10]:
+        for repo in repos[:5]:
             try:
                 langs = repo.get_languages()
                 if not langs:
@@ -222,10 +187,7 @@ async def fetch_and_analyze_skills(username: str) -> dict:
             except Exception:
                 continue
 
-        # Build skill scores
-        skills = _build_skill_scores(
-            language_stats, commit_activity, frameworks_detected
-        )
+        skills = _build_skill_scores(language_stats, commit_activity, frameworks_detected)
         return {"skills": skills, "repo_count": len(repos)}
 
     result = await asyncio.to_thread(_analyze)
@@ -264,10 +226,8 @@ def _build_skill_scores(
             "evidence":         _build_evidence(lang, stats["repo_count"], commit_count, months_ago),
         })
 
-    # Frameworks detected via dependency analysis
-    existing_names = {s["skill_name"] for s in skills}
     for fw in frameworks_detected:
-        if fw not in existing_names:
+        if fw not in {s["skill_name"] for s in skills}:
             skills.append({
                 "skill_name":       fw,
                 "confidence_score": 45,
@@ -275,7 +235,7 @@ def _build_skill_scores(
                 "repo_count":       1,
                 "last_used":        "Detected in repos",
                 "category":         "framework",
-                "evidence":         "Detected in project dependencies or repository metadata.",
+                "evidence":         "Detected in repository topics or description.",
             })
 
     return sorted(skills, key=lambda s: s["confidence_score"], reverse=True)
