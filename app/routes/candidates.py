@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from aiosqlite import Connection
 from typing import List
-from datetime import datetime, timezone, timedelta
+import asyncio
+import httpx
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
@@ -10,7 +11,6 @@ from app.models.schemas import (
     CandidateOut, SkillOut, SavedCandidateOut, CandidateDetailResponse,
 )
 from app.services.github import fetch_user_profile, fetch_and_analyze_skills
-from github import UnknownObjectException, RateLimitExceededException, GithubException
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -46,16 +46,25 @@ async def analyze(
 
     # Fetch from GitHub
     try:
-        profile, skill_data = await _fetch_profile_and_skills(body.username)
-    except UnknownObjectException:
-        raise HTTPException(status_code=404, detail=f'GitHub user "{body.username}" not found')
-    except RateLimitExceededException:
-        raise HTTPException(
-            status_code=429,
-            detail="GitHub API rate limit reached. Add a GITHUB_TOKEN to increase limits (5000 req/hr).",
+        profile, skill_data = await asyncio.wait_for(
+            asyncio.gather(
+                fetch_user_profile(username),
+                fetch_and_analyze_skills(username),
+            ),
+            timeout=25.0
         )
-    except GithubException as e:
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Analysis timed out. Try a user with fewer repositories.")
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(status_code=404, detail=f'GitHub user "{body.username}" not found')
+        if e.response.status_code == 403:
+            raise HTTPException(status_code=429, detail="GitHub API rate limit reached. Add a GITHUB_TOKEN to increase limits.")
         raise HTTPException(status_code=502, detail=f"GitHub API error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     # Upsert candidate
     await db.execute(
@@ -101,6 +110,8 @@ async def analyze(
              s["commit_count"], s["repo_count"], s["last_used"], s["evidence"], s["category"]),
         )
 
+    await db.commit()
+
     async with db.execute(
         "SELECT * FROM skill_profiles WHERE candidate_id = ? ORDER BY confidence_score DESC",
         (candidate_id,),
@@ -112,15 +123,6 @@ async def analyze(
         skills=skills,
         cached=False,
     )
-
-
-async def _fetch_profile_and_skills(username: str):
-    import asyncio
-    profile, skill_data = await asyncio.gather(
-        fetch_user_profile(username),
-        fetch_and_analyze_skills(username),
-    )
-    return profile, skill_data
 
 
 @router.post("/save")
@@ -137,6 +139,7 @@ async def save_candidate(
                status = excluded.status""",
         (current_user["id"], body.candidate_id, body.notes or "", body.status or "reviewing"),
     )
+    await db.commit()
     return {"success": True}
 
 
@@ -150,6 +153,7 @@ async def remove_saved(
         "DELETE FROM saved_candidates WHERE user_id = ? AND candidate_id = ?",
         (current_user["id"], candidate_id),
     )
+    await db.commit()
     return {"success": True}
 
 
@@ -170,6 +174,7 @@ async def update_saved(
             "UPDATE saved_candidates SET status = ? WHERE user_id = ? AND candidate_id = ?",
             (body.status, current_user["id"], candidate_id),
         )
+    await db.commit()
     return {"success": True}
 
 
