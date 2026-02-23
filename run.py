@@ -7,6 +7,5 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=port,
-        workers=2,
         log_level="info",
     )

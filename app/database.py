@@ -1,13 +1,13 @@
 import aiosqlite
 import os
-from app.config import get_settings
+
+
+def get_db_path() -> str:
+    return os.environ.get("DB_PATH", "/tmp/skillledger.db")
 
 
 async def get_db():
-    settings = get_settings()
-    db_path = settings.db_path or "./skillledger.db"
-
-    db = await aiosqlite.connect(db_path)
+    db = await aiosqlite.connect(get_db_path())
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")
     await db.execute("PRAGMA foreign_keys=ON")
@@ -22,10 +22,8 @@ async def get_db():
 
 
 async def init_db():
-    settings = get_settings()
-    db_path = settings.db_path or "./skillledger.db"
-
-    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    db_path = get_db_path()
+    print(f"Initializing database at: {db_path}")
 
     async with aiosqlite.connect(db_path) as db:
         await db.execute("PRAGMA journal_mode=WAL")
@@ -84,4 +82,4 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_candidates(user_id);
         """)
         await db.commit()
-    print("✅ Database initialized")
+    print("Database initialized successfully")
