@@ -1,11 +1,9 @@
 import asyncio
-import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from cachetools import TTLCache
-from github import Github, GithubException, UnknownObjectException
+from github import Github
 from app.config import get_settings
 
-# In-memory cache: 1 hour TTL, max 500 entries
 _cache = TTLCache(maxsize=500, ttl=3600)
 
 FRAMEWORK_SIGNALS: dict[str, list[str]] = {
@@ -45,7 +43,7 @@ LANGUAGE_CATEGORIES: dict[str, str] = {
 def _get_github_client() -> Github:
     settings = get_settings()
     token = settings.github_token
-    return Github(token if token else None, per_page=100)
+    return Github(token if token else None, per_page=10)
 
 
 def _months_ago(dt: datetime) -> float:
@@ -53,17 +51,6 @@ def _months_ago(dt: datetime) -> float:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return (now - dt).days / 30.0
-
-
-def _build_evidence(lang: str, repo_count: int, commits: int, months_ago: float) -> str:
-    parts = []
-    if repo_count:
-        parts.append(f"{repo_count} repo{'s' if repo_count != 1 else ''}")
-    if commits:
-        parts.append(f"{commits} commits in the last year")
-    if months_ago < 3:
-        parts.append("actively used recently")
-    return ", ".join(parts) + "." if parts else "Detected in repositories."
 
 
 def _last_used_str(months_ago: float) -> str:
@@ -78,18 +65,17 @@ def _last_used_str(months_ago: float) -> str:
     return f"{years} year{'s' if years != 1 else ''} ago"
 
 
-def _confidence_score(
-    byte_share: float,
-    repo_score: float,
-    commit_score: float,
-    recency_score: float,
-) -> int:
-    raw = (
-        byte_share    * 0.25 +
-        repo_score    * 0.30 +
-        commit_score  * 0.30 +
-        recency_score * 0.15
-    )
+def _build_evidence(lang: str, repo_count: int, months_ago: float) -> str:
+    parts = []
+    if repo_count:
+        parts.append(f"{repo_count} repo{'s' if repo_count != 1 else ''}")
+    if months_ago < 3:
+        parts.append("actively used recently")
+    return ", ".join(parts) + "." if parts else "Detected in repositories."
+
+
+def _confidence_score(byte_share: float, repo_score: float, recency_score: float) -> int:
+    raw = byte_share * 0.40 + repo_score * 0.40 + recency_score * 0.20
     scaled = min(98, max(5, raw * 120))
     return round(scaled)
 
@@ -127,15 +113,15 @@ async def fetch_and_analyze_skills(username: str) -> dict:
         gh = _get_github_client()
         user = gh.get_user(username)
 
-        # Limit to 20 repos max (was 100 fetched, 30 analyzed)
-        repos = [r for r in user.get_repos(sort="pushed", type="owner") if not r.fork][:20]
+        # KEY FIX: get first page only (10 repos), no fork filtering loop
+        repo_page = user.get_repos(sort="pushed", type="owner").get_page(0)
+        repos = repo_page[:10]
 
         now = datetime.now(timezone.utc)
         language_stats: dict[str, dict] = {}
         frameworks_detected: set[str] = set()
 
-        # Analyze only top 10 repos (was 30) — reduces API calls significantly
-        for repo in repos[:10]:
+        for repo in repos:
             try:
                 pushed = repo.pushed_at or repo.created_at
                 if pushed.tzinfo is None:
@@ -158,7 +144,6 @@ async def fetch_and_analyze_skills(username: str) -> dict:
                     if pushed > language_stats[lang]["last_used"]:
                         language_stats[lang]["last_used"] = pushed
 
-                # Detect frameworks from topics + description only (no file fetching)
                 topics = repo.topics or []
                 desc = (repo.description or "").lower()
                 combined = " ".join(topics) + " " + desc
@@ -169,9 +154,7 @@ async def fetch_and_analyze_skills(username: str) -> dict:
             except Exception:
                 continue
 
-        commit_activity: dict[str, int] = {}
-
-        skills = _build_skill_scores(language_stats, commit_activity, frameworks_detected)
+        skills = _build_skill_scores(language_stats, frameworks_detected)
         return {"skills": skills, "repo_count": len(repos)}
 
     result = await asyncio.to_thread(_analyze)
@@ -179,11 +162,7 @@ async def fetch_and_analyze_skills(username: str) -> dict:
     return result
 
 
-def _build_skill_scores(
-    language_stats: dict,
-    commit_activity: dict,
-    frameworks_detected: set,
-) -> list[dict]:
+def _build_skill_scores(language_stats: dict, frameworks_detected: set) -> list[dict]:
     skills = []
     total_bytes = sum(s["bytes"] for s in language_stats.values()) or 1
 
@@ -193,21 +172,18 @@ def _build_skill_scores(
 
         byte_share    = stats["bytes"] / total_bytes
         repo_score    = min(stats["recent_repo_count"] / 5, 1.0)
-        commit_count  = commit_activity.get(lang, 0)
-        commit_score  = min(commit_count / 100, 1.0)
         months_ago    = _months_ago(stats["last_used"])
         recency_score = max(0.0, 1 - months_ago / 24)
-
-        confidence = _confidence_score(byte_share, repo_score, commit_score, recency_score)
+        confidence    = _confidence_score(byte_share, repo_score, recency_score)
 
         skills.append({
             "skill_name":       lang,
             "confidence_score": confidence,
-            "commit_count":     commit_count,
+            "commit_count":     0,
             "repo_count":       stats["repo_count"],
             "last_used":        _last_used_str(months_ago),
             "category":         LANGUAGE_CATEGORIES.get(lang, "language"),
-            "evidence":         _build_evidence(lang, stats["repo_count"], commit_count, months_ago),
+            "evidence":         _build_evidence(lang, stats["repo_count"], months_ago),
         })
 
     for fw in frameworks_detected:
