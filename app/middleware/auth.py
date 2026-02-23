@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
@@ -11,11 +12,13 @@ bearer_scheme = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    pre_hashed = hashlib.sha256(password.encode()).hexdigest()
+    return pwd_context.hash(pre_hashed)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    pre_hashed = hashlib.sha256(plain.encode()).hexdigest()
+    return pwd_context.verify(pre_hashed, hashed)
 
 
 def create_token(data: dict) -> str:
@@ -33,16 +36,15 @@ def decode_token(token: str) -> dict:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> dict:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = decode_token(credentials.credentials)
         user_id: Optional[int] = payload.get("id")
         if user_id is None:
-            raise credentials_exception
+            raise HTTPException(status_code=401, detail="Invalid token")
         return payload
     except JWTError:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
