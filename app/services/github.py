@@ -169,23 +169,7 @@ async def fetch_and_analyze_skills(username: str) -> dict:
             except Exception:
                 continue
 
-        # Commit activity — only top 5 repos (was 10)
         commit_activity: dict[str, int] = {}
-        one_year_ago = now - timedelta(days=365)
-
-        for repo in repos[:5]:
-            try:
-                langs = repo.get_languages()
-                if not langs:
-                    continue
-                primary = max(langs.items(), key=lambda x: x[1])[0]
-                count = repo.get_commits(
-                    author=username,
-                    since=one_year_ago,
-                ).totalCount
-                commit_activity[primary] = commit_activity.get(primary, 0) + count
-            except Exception:
-                continue
 
         skills = _build_skill_scores(language_stats, commit_activity, frameworks_detected)
         return {"skills": skills, "repo_count": len(repos)}
