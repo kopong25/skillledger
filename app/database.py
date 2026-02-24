@@ -8,9 +8,16 @@ async def get_pool():
     global _pool
     if _pool is None:
         database_url = os.environ.get("DATABASE_URL", "")
+        print(f"DATABASE_URL present: {bool(database_url)}")
+        print(f"DATABASE_URL prefix: {database_url[:20] if database_url else 'EMPTY'}")
         if not database_url:
             raise RuntimeError("DATABASE_URL environment variable not set")
-        _pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
+        try:
+            _pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
+            print("Database pool created successfully")
+        except Exception as e:
+            print(f"DATABASE CONNECTION ERROR: {e}")
+            raise
     return _pool
 
 async def get_db() -> AsyncGenerator:
