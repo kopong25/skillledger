@@ -63,6 +63,8 @@ class SkillOut(BaseModel):
     category: str
 
 
+from datetime import datetime
+
 class CandidateOut(BaseModel):
     id: int
     github_username: str
@@ -73,7 +75,9 @@ class CandidateOut(BaseModel):
     public_repos: int
     followers: int
     github_url: Optional[str]
-    analyzed_at: Optional[str]
+    analyzed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
 
 
 class AnalyzeResponse(BaseModel):
