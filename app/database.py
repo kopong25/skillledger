@@ -1,45 +1,39 @@
-import aiosqlite
+import asyncpg
 import os
+from typing import AsyncGenerator
 
+_pool = None
 
-def get_db_path() -> str:
-    return os.environ.get("DB_PATH", "/tmp/skillledger.db")
+async def get_pool():
+    global _pool
+    if _pool is None:
+        database_url = os.environ.get("DATABASE_URL", "")
+        if not database_url:
+            raise RuntimeError("DATABASE_URL environment variable not set")
+        _pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
+    return _pool
 
-
-async def get_db():
-    db = await aiosqlite.connect(get_db_path())
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA journal_mode=WAL")
-    await db.execute("PRAGMA foreign_keys=ON")
-    try:
-        yield db
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-    finally:
-        await db.close()
-
+async def get_db() -> AsyncGenerator:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        yield conn
 
 async def init_db():
-    db_path = get_db_path()
-    print(f"Initializing database at: {db_path}")
-
-    async with aiosqlite.connect(db_path) as db:
-        await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA foreign_keys=ON")
-        await db.executescript("""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL,
                 role TEXT DEFAULT 'recruiter',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS candidates (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 github_username TEXT UNIQUE NOT NULL,
                 display_name TEXT,
                 avatar_url TEXT,
@@ -48,38 +42,35 @@ async def init_db():
                 public_repos INTEGER DEFAULT 0,
                 followers INTEGER DEFAULT 0,
                 github_url TEXT,
-                analyzed_at DATETIME,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
+                analyzed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS skill_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                candidate_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                candidate_id INTEGER NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
                 skill_name TEXT NOT NULL,
                 confidence_score INTEGER NOT NULL,
                 commit_count INTEGER DEFAULT 0,
                 repo_count INTEGER DEFAULT 0,
                 last_used TEXT,
                 evidence TEXT,
-                category TEXT DEFAULT 'language',
-                FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-            );
-
+                category TEXT DEFAULT 'language'
+            )
+        """)
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS saved_candidates (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                candidate_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                candidate_id INTEGER NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
                 notes TEXT DEFAULT '',
                 status TEXT DEFAULT 'reviewing',
-                saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, candidate_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_candidates_github ON candidates(github_username);
-            CREATE INDEX IF NOT EXISTS idx_skills_candidate ON skill_profiles(candidate_id);
-            CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_candidates(user_id);
+                saved_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, candidate_id)
+            )
         """)
-        await db.commit()
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_candidates_github ON candidates(github_username)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_candidate ON skill_profiles(candidate_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_candidates(user_id)")
     print("Database initialized successfully")
