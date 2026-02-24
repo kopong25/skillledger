@@ -4,8 +4,8 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt && npm install --prefix client && npm run build --prefix client
-    startCommand: python run.py
+    buildCommand: npm install --prefix client && npm run build --prefix client && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
       - key: ENVIRONMENT
@@ -14,7 +14,7 @@ services:
         generateValue: true
       - key: GITHUB_TOKEN
         sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: PORT
         value: 10000
-      - key: DB_PATH
-        value: /tmp/skillledger.db
