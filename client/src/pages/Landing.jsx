@@ -171,10 +171,10 @@ export default function Landing() {
           {/* Demo card */}
           <div className="card-glass" style={{ maxWidth: 480, margin: '64px auto 0', borderRadius: 16, padding: '28px 32px', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'white' }}>K</div>
+              <img src="https://avatars.githubusercontent.com/google" alt="google" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} />
               <div>
-                <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 14 }}>kopong25</div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>42 repos · 8 years active</div>
+                <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 14 }}>google</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>2837 repos · active</div>
               </div>
               <div style={{ marginLeft: 'auto', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ade80', fontSize: 11, padding: '3px 10px', borderRadius: 100, fontWeight: 500 }}>Analyzed</div>
             </div>
