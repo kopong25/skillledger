@@ -65,4 +65,4 @@ async def serve_spa(full_path: str):
     index = CLIENT_DIST / "index.html"
     if index.exists():
         return FileResponse(str(index))
-    return JSONResponse({"error": "Frontend not built"}, status_code=503)tus_code=503)
+    return JSONResponse({"error": "Frontend not built"}, status_code=503) 
