@@ -32,6 +32,9 @@ export default function Navbar() {
               <Link to="/saved" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 Saved
               </Link>
+              <Link to="/team" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                Team
+              </Link>
               <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
                 <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
                   {user.name?.[0]?.toUpperCase()}

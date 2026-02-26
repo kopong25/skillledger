@@ -8,13 +8,10 @@ async def get_pool():
     global _pool
     if _pool is None:
         database_url = os.environ.get("DATABASE_URL", "")
-        print(f"DATABASE_URL present: {bool(database_url)}")
-        print(f"DATABASE_URL prefix: {database_url[:20] if database_url else 'EMPTY'}")
         if not database_url:
             raise RuntimeError("DATABASE_URL environment variable not set")
         try:
             _pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
-            print("Database pool created successfully")
         except Exception as e:
             print(f"DATABASE CONNECTION ERROR: {e}")
             raise
@@ -74,10 +71,44 @@ async def init_db():
                 notes TEXT DEFAULT '',
                 status TEXT DEFAULT 'reviewing',
                 saved_at TIMESTAMPTZ DEFAULT NOW(),
-                UNIQUE(user_id, candidate_id)
+                UNIQUE(user_id, candidate_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS teams (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS team_members (
+                id SERIAL PRIMARY KEY,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT DEFAULT 'member',
+                joined_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(team_id, user_id)
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS team_saved_candidates (
+                id SERIAL PRIMARY KEY,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                candidate_id INTEGER NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
+                saved_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                notes TEXT DEFAULT '',
+                status TEXT DEFAULT 'reviewing',
+                saved_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(team_id, candidate_id)
             )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_candidates_github ON candidates(github_username)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_candidate ON skill_profiles(candidate_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_candidates(user_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_team_members ON team_members(team_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_team_saved ON team_saved_candidates(team_id)")
     print("Database initialized successfully")

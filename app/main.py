@@ -7,11 +7,14 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from app.routes import auth, candidates, teams  # add teams here
 import pathlib
 
 from app.config import get_settings
 from app.database import init_db
 from app.routes import auth, candidates
+
+app.include_router(teams.router, prefix="/api")
 
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
