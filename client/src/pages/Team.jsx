@@ -1,6 +1,4 @@
-const fs = require('fs');
-
-const content = `import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 
 export default function Team() {
@@ -141,7 +139,7 @@ export default function Team() {
               <div className="space-y-2">
                 {teams.map(team => (
                   <button key={team.id} onClick={() => setSelectedTeam(team)}
-                    className={'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ' + (selectedTeam && selectedTeam.id === team.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-slate-50 text-slate-700')}>
+                    className={'w-full text-left px-3 py-2 rounded-lg text-sm ' + (selectedTeam && selectedTeam.id === team.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-slate-50 text-slate-700')}>
                     {team.name}
                     <span className="text-xs text-slate-400 ml-2">
                       {team.members.length} member{team.members.length !== 1 ? 's' : ''}
@@ -207,7 +205,7 @@ export default function Team() {
                             {c.display_name || c.github_username}
                           </a>
                           <p className="text-xs text-slate-400">
-                            {'@' + c.github_username + ' · Saved by ' + (c.saved_by_name || '')}
+                            {'@' + c.github_username + ' - Saved by ' + (c.saved_by_name || '')}
                           </p>
                         </div>
                         <span className={'text-xs px-2 py-1 rounded-full ' + (statusColors[c.status] || 'bg-slate-100 text-slate-600')}>
@@ -236,7 +234,4 @@ export default function Team() {
       </div>
     </div>
   );
-}`;
-
-fs.writeFileSync('client/src/pages/Team.jsx', content);
-console.log('Team.jsx written successfully');
+}
