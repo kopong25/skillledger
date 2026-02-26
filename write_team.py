@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+content = '''import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 
 export default function Team() {
@@ -77,7 +77,7 @@ export default function Team() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'SkillsLedger-' + selectedTeam.name + '-report.pdf';
+      a.download = 'skillledger-' + selectedTeam.name + '-report.pdf';
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) { setError(e.message); }
@@ -234,4 +234,9 @@ export default function Team() {
       </div>
     </div>
   );
-}
+}'''
+
+with open('client/src/pages/Team.jsx', 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print('Team.jsx written successfully')

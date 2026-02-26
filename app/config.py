@@ -4,7 +4,7 @@ import os
 
 
 class Settings(BaseSettings):
-    app_name: str = "SkillLedger"
+    app_name: str = "SkillsLedger"
     version: str = "1.0.0"
     debug: bool = False
 
@@ -28,8 +28,8 @@ class Settings(BaseSettings):
         if self.db_path:
             return f"sqlite+aiosqlite:///{self.db_path}"
         if self.environment == "production":
-            return "sqlite+aiosqlite:////var/data/skillledger.db"
-        return "sqlite+aiosqlite:///./skillledger.db"
+            return "sqlite+aiosqlite:////var/data/SkillsLedger.db"
+        return "sqlite+aiosqlite:///./SkillsLedger.db"
 
     class Config:
         env_file = ".env"

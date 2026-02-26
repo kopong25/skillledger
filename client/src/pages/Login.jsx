@@ -31,7 +31,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Welcome back</h1>
-          <p className="text-slate-500 mt-2">Log in to your SkillLedger account</p>
+          <p className="text-slate-500 mt-2">Log in to your SkillsLedger account</p>
         </div>
 
         <div className="card">

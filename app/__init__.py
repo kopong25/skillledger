@@ -1,1 +1,1 @@
-# SkillLedger FastAPI Application
+# SkillsLedger FastAPI Application

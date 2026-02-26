@@ -244,7 +244,7 @@ async def download_team_report(
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=skillledger-{team['name']}-report.pdf"}
+        headers={"Content-Disposition": f"attachment; filename=SkillsLedger-{team['name']}-report.pdf"}
     )
 
 
@@ -268,7 +268,7 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
                                   textColor=colors.HexColor("#1d4ed8"), alignment=TA_CENTER)
     sub_style = ParagraphStyle("sub", fontSize=12, fontName="Helvetica",
                                 textColor=colors.grey, alignment=TA_CENTER)
-    story.append(Paragraph("SkillLedger", title_style))
+    story.append(Paragraph("SkillsLedger", title_style))
     story.append(Paragraph(f"Team Report: {team_name}", sub_style))
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}", sub_style))
     story.append(Spacer(1, 10*mm))

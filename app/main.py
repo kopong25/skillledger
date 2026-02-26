@@ -18,11 +18,11 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    print(f"SkillLedger started — GitHub token: {'SET' if settings.github_token else 'NOT SET'}")
+    print(f"SkillsLedger started — GitHub token: {'SET' if settings.github_token else 'NOT SET'}")
     yield
 
 app = FastAPI(
-    title="SkillLedger API",
+    title="SkillsLedger API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

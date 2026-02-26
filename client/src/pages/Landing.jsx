@@ -42,7 +42,7 @@ const FEATURES = [
 
 const STEPS = [
   { num: '01', title: 'Enter a GitHub username', desc: 'Paste any public GitHub profile into the analyzer.' },
-  { num: '02', title: 'Get instant skill scores', desc: 'SkillLedger analyzes their repos and commits in seconds.' },
+  { num: '02', title: 'Get instant skill scores', desc: 'SkillsLedger analyzes their repos and commits in seconds.' },
   { num: '03', title: 'Save, share, and decide', desc: 'Build your pipeline and collaborate with your team.' },
 ];
 
@@ -160,7 +160,7 @@ export default function Landing() {
           </h1>
 
           <p style={{ fontSize: 18, color: '#94a3b8', lineHeight: 1.7, maxWidth: 560, margin: '0 auto 40px', fontWeight: 300 }}>
-            SkillLedger analyzes GitHub profiles and returns verified skill confidence scores — so you can make faster, smarter hiring decisions.
+            SkillsLedger analyzes GitHub profiles and returns verified skill confidence scores — so you can make faster, smarter hiring decisions.
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -289,9 +289,9 @@ export default function Landing() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 15 }}>SkillLedger</span>
+          <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 15 }}>SkillsLedger</span>
         </div>
-        <p style={{ fontSize: 13, color: '#334155' }}>© {new Date().getFullYear()} SkillLedger. Free during beta.</p>
+        <p style={{ fontSize: 13, color: '#334155' }}>© {new Date().getFullYear()} SkillsLedger. Free during beta.</p>
         <div style={{ display: 'flex', gap: 20 }}>
           <Link to="/login" style={{ fontSize: 13, color: '#475569', textDecoration: 'none' }}>Sign in</Link>
           <Link to="/register" style={{ fontSize: 13, color: '#475569', textDecoration: 'none' }}>Register</Link>
