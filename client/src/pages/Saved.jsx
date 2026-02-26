@@ -26,7 +26,8 @@ export default function Saved() {
   }
 
   async function handleStatusChange(candidateId, status) {
-    await api.updateSaved(candidateId, { status, notes: '' });
+    const candidate = candidates.find(x => x.id === candidateId);
+    await api.updateSaved(candidateId, { status, notes: candidate?.notes || '' });
     setCandidates(c => c.map(x => x.id === candidateId ? { ...x, status } : x));
   }
 
