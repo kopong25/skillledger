@@ -12,6 +12,12 @@ export default function Team() {
   const [success, setSuccess] = useState('');
   const [downloading, setDownloading] = useState(false);
 
+  const statusColors = {
+    reviewing: 'bg-yellow-100 text-yellow-800',
+    shortlisted: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+  };
+
   useEffect(() => {
     loadTeams();
   }, []);
@@ -97,17 +103,13 @@ export default function Team() {
     }
   }
 
-  const statusColors = {
-    reviewing: 'bg-yellow-100 text-yellow-800',
-    shortlisted: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -122,7 +124,7 @@ export default function Team() {
             disabled={downloading}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {downloading ? 'Generating...' : '⬇ Download PDF Report'}
+            {downloading ? 'Generating...' : 'Download PDF Report'}
           </button>
         )}
       </div>
@@ -130,7 +132,7 @@ export default function Team() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
-          <button onClick={() => setError('')} className="float-right font-bold">×</button>
+          <button onClick={() => setError('')} className="float-right font-bold">x</button>
         </div>
       )}
       {success && (
@@ -140,7 +142,6 @@ export default function Team() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left sidebar - Teams list */}
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <h2 className="font-semibold text-slate-800 mb-3">Create Team</h2>
@@ -171,7 +172,7 @@ export default function Team() {
                     key={team.id}
                     onClick={() => setSelectedTeam(team)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      selectedTeam?.id === team.id
+                      selectedTeam && selectedTeam.id === team.id
                         ? 'bg-blue-50 text-blue-700 font-medium'
                         : 'hover:bg-slate-50 text-slate-700'
                     }`}
@@ -187,13 +188,11 @@ export default function Team() {
           </div>
         </div>
 
-        {/* Main content */}
         {selectedTeam && (
           <div className="lg:col-span-2 space-y-4">
-            {/* Members */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <h2 className="font-semibold text-slate-800 mb-3">
-                Members — {selectedTeam.name}
+                Members - {selectedTeam.name}
               </h2>
               <div className="flex gap-2 mb-4">
                 <input
@@ -240,14 +239,13 @@ export default function Team() {
               </div>
             </div>
 
-            {/* Shared candidates */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <h2 className="font-semibold text-slate-800 mb-3">
                 Shared Candidates ({teamCandidates.length})
               </h2>
               {teamCandidates.length === 0 ? (
                 <p className="text-slate-500 text-sm">
-                  No candidates shared yet. Go to Saved and share candidates with this team.
+                  No candidates shared yet. Go to Saved and click Share to Team.
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -256,24 +254,24 @@ export default function Team() {
                       <div className="flex items-start justify-between">
                         <div>
                           
-                            href={`/candidate/${c.github_username}`}
+                            href={'/candidate/' + c.github_username}
                             className="font-medium text-blue-600 hover:underline"
                           >
                             {c.display_name || c.github_username}
                           </a>
                           <p className="text-xs text-slate-400">
-                            @{c.github_username} · Saved by {c.saved_by_name}
+                            {'@' + c.github_username + ' · Saved by ' + c.saved_by_name}
                           </p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full ${statusColors[c.status] || 'bg-slate-100 text-slate-600'}`}>
                           {c.status}
                         </span>
                       </div>
-                      {c.skills.length > 0 && (
+                      {c.skills && c.skills.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {c.skills.slice(0, 5).map(s => (
                             <span key={s.skill_name} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                              {s.skill_name} {s.confidence_score}%
+                              {s.skill_name + ' ' + s.confidence_score + '%'}
                             </span>
                           ))}
                         </div>
