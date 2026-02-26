@@ -10,7 +10,7 @@ export default function Saved() {
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [teams, setTeams] = useState([]);
-  const [shareModal, setShareModal] = useState(null); // candidate being shared
+  const [shareModal, setShareModal] = useState(null);
   const [shareTeamId, setShareTeamId] = useState('');
   const [shareSuccess, setShareSuccess] = useState('');
 
@@ -89,7 +89,6 @@ export default function Saved() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-      {/* Share to Team Modal */}
       {shareModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
@@ -185,21 +184,13 @@ export default function Saved() {
           ) : (
             <div className="space-y-4">
               {filtered.map(c => (
-                <div key={c.id} className="relative">
-                  <CandidateCard
-                    candidate={c}
-                    onRemove={handleRemove}
-                    onStatusChange={handleStatusChange}
-                  />
-                  {teams.length > 0 && (
-                    <button
-                      onClick={() => setShareModal(c)}
-                      className="absolute top-4 right-4 text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-500 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Share to Team
-                    </button>
-                  )}
-                </div>
+                <CandidateCard
+                  key={c.id}
+                  candidate={c}
+                  onRemove={handleRemove}
+                  onStatusChange={handleStatusChange}
+                  onShare={teams.length > 0 ? () => setShareModal(c) : null}
+                />
               ))}
             </div>
           )}

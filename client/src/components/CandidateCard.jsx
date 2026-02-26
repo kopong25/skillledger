@@ -7,7 +7,7 @@ const STATUS_STYLES = {
   hired: 'bg-blue-50 text-blue-700',
 };
 
-export default function CandidateCard({ candidate, onRemove, onStatusChange }) {
+export default function CandidateCard({ candidate, onRemove, onStatusChange, onShare }) {
   const topSkills = (candidate.skills || []).slice(0, 4);
 
   return (
@@ -47,7 +47,6 @@ export default function CandidateCard({ candidate, onRemove, onStatusChange }) {
             <p className="text-sm text-slate-600 mt-1 line-clamp-1">{candidate.bio}</p>
           )}
 
-          {/* Top skills mini view */}
           {topSkills.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3">
               {topSkills.map(skill => (
@@ -80,6 +79,14 @@ export default function CandidateCard({ candidate, onRemove, onStatusChange }) {
               >
                 Full profile →
               </Link>
+              {onShare && (
+                <button
+                  onClick={onShare}
+                  className="text-xs text-slate-400 hover:text-blue-500 transition-colors ml-2"
+                >
+                  Share to Team
+                </button>
+              )}
               {onRemove && (
                 <button
                   onClick={() => onRemove(candidate.id)}
