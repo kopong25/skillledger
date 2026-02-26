@@ -7,25 +7,19 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from app.routes import auth, candidates, teams  # add teams here
+from app.routes import auth, candidates, teams  # single import
 import pathlib
-
 from app.config import get_settings
 from app.database import init_db
-from app.routes import auth, candidates
-
-app.include_router(teams.router, prefix="/api")
 
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     print(f"SkillLedger started — GitHub token: {'SET' if settings.github_token else 'NOT SET'}")
     yield
-
 
 app = FastAPI(
     title="SkillLedger API",
@@ -37,7 +31,6 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,7 +42,7 @@ app.add_middleware(
 # ── API routes ──
 app.include_router(auth.router, prefix="/api")
 app.include_router(candidates.router, prefix="/api")
-
+app.include_router(teams.router, prefix="/api")  # moved here, after app is created
 
 @app.get("/api/health", tags=["Health"])
 async def health():
@@ -60,10 +53,8 @@ async def health():
         "version": settings.version,
     }
 
-
 # ── Serve React SPA (AFTER all API routes) ──
 CLIENT_DIST = pathlib.Path(__file__).parent.parent / "client" / "dist"
-
 if CLIENT_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(CLIENT_DIST / "assets")), name="assets")
 
@@ -74,4 +65,4 @@ async def serve_spa(full_path: str):
     index = CLIENT_DIST / "index.html"
     if index.exists():
         return FileResponse(str(index))
-    return JSONResponse({"error": "Frontend not built"}, status_code=503)
+    return JSONResponse({"error": "Frontend not built"}, status_code=503)tus_code=503)
