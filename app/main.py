@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -7,10 +7,10 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from app.routes import auth, candidates, teams  # single import
+from app.routes import auth, candidates, teams
 import pathlib
 from app.config import get_settings
-from app.database import init_db
+from app.database import init_db, get_db
 
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
@@ -42,7 +42,15 @@ app.add_middleware(
 # ── API routes ──
 app.include_router(auth.router, prefix="/api")
 app.include_router(candidates.router, prefix="/api")
-app.include_router(teams.router, prefix="/api")  # moved here, after app is created
+app.include_router(teams.router, prefix="/api")
+
+# ── TEMPORARY ROUTE - DELETE AFTER VISITING ──
+@app.get("/api/make-superadmin-kwadwo-secret")
+async def make_superadmin(db=Depends(get_db)):
+    await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN DEFAULT FALSE")
+    await db.execute("UPDATE users SET is_superadmin = TRUE WHERE email = 'koppong2005@yahoo.com'")
+    return {"done": True}
+# ── END TEMPORARY ROUTE ──
 
 @app.get("/api/health", tags=["Health"])
 async def health():
@@ -65,4 +73,4 @@ async def serve_spa(full_path: str):
     index = CLIENT_DIST / "index.html"
     if index.exists():
         return FileResponse(str(index))
-    return JSONResponse({"error": "Frontend not built"}, status_code=503) 
+    return JSONResponse({"error": "Frontend not built"}, status_code=503)
