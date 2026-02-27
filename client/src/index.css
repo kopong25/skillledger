@@ -61,4 +61,8 @@
   .sticky {
     position: static !important;
   }
+  @page {
+    margin-top: 10mm;
+    margin-bottom: 10mm;
+  }
 }
