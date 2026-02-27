@@ -42,22 +42,6 @@ export const api = {
   updateSaved: (id, body) => request(`/candidates/save/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   removeSaved: (id) => request(`/candidates/save/${id}`, { method: 'DELETE' }),
 
-// Admin
-adminStats: () => request('/admin/stats'),
-adminUsers: () => request('/admin/users'),
-adminTeams: () => request('/admin/teams'),
-adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
-// Settings
-getCompanySettings: () => request('/settings/company'),
-updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
-
-adminStats: () => request('/admin/stats'),
-adminUsers: () => request('/admin/users'),
-adminTeams: () => request('/admin/teams'),
-adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
-getCompanySettings: () => request('/settings/company'),
-updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
-
   // Teams
   createTeam: (body) => request('/teams', { method: 'POST', body: JSON.stringify(body) }),
   getMyTeams: () => request('/teams/my'),
@@ -68,19 +52,21 @@ updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', b
   teamUpdateSaved: (teamId, candidateId, body) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   teamRemoveSaved: (teamId, candidateId) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'DELETE' }),
 
+  // Admin
+  adminStats: () => request('/admin/stats'),
+  adminUsers: () => request('/admin/users'),
+  adminTeams: () => request('/admin/teams'),
+  adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+
+  // Settings
+  getCompanySettings: () => request('/settings/company'),
+  updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
+
   // Report download (returns blob)
   downloadTeamReport: async (teamId) => {
     const token = getToken();
     const res = await fetch(`${BASE}/teams/${teamId}/report`, {
       headers: { Authorization: `Bearer ${token}` }
-    // Admin
-adminStats: () => request('/admin/stats'),
-adminUsers: () => request('/admin/users'),
-adminTeams: () => request('/admin/teams'),
-adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
-// Settings
-getCompanySettings: () => request('/settings/company'),
-updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
     });
     if (!res.ok) throw new Error('Failed to generate report');
     return res.blob();
