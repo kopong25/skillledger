@@ -73,6 +73,14 @@ updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', b
     const token = getToken();
     const res = await fetch(`${BASE}/teams/${teamId}/report`, {
       headers: { Authorization: `Bearer ${token}` }
+    // Admin
+adminStats: () => request('/admin/stats'),
+adminUsers: () => request('/admin/users'),
+adminTeams: () => request('/admin/teams'),
+adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+// Settings
+getCompanySettings: () => request('/settings/company'),
+updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
     });
     if (!res.ok) throw new Error('Failed to generate report');
     return res.blob();

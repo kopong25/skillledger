@@ -46,6 +46,23 @@ app.include_router(teams.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(settings_route.router, prefix="/api")
 
+# ── TEMPORARY ROUTE - DELETE AFTER VISITING ──
+@app.get("/api/migrate-company-settings-secret")
+async def migrate_company(db=Depends(get_db)):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS company_settings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+            company_name TEXT DEFAULT '',
+            logo_url TEXT DEFAULT '',
+            website TEXT DEFAULT '',
+            contact_email TEXT DEFAULT '',
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    return {"done": True}
+# ── END TEMPORARY ROUTE ──
+
 @app.get("/api/health", tags=["Health"])
 async def health():
     return {
