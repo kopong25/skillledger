@@ -66,3 +66,5 @@
     margin-bottom: 10mm;
   }
 }
+ 
+@media print { nav { display: none !important; } @page { margin: 10mm; } } 
