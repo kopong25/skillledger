@@ -99,9 +99,9 @@ export default function CandidateProfile() {
         <div className="flex items-start gap-6">
           <img src={candidate.avatar_url} alt={candidate.display_name} className="w-20 h-20 rounded-full flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">{candidate.display_name}</h1>
+                <h1 className="text-2xl font-bold text-slate-900 break-words">{candidate.display_name}</h1>
                 <a href={candidate.github_url} target="_blank" rel="noopener noreferrer"
                    className="text-slate-500 hover:text-blue-600 text-sm transition-colors">
                   @{candidate.github_username} ↗
