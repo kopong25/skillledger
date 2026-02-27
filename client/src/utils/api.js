@@ -51,6 +51,13 @@ adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 getCompanySettings: () => request('/settings/company'),
 updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
 
+adminStats: () => request('/admin/stats'),
+adminUsers: () => request('/admin/users'),
+adminTeams: () => request('/admin/teams'),
+adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+getCompanySettings: () => request('/settings/company'),
+updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
+
   // Teams
   createTeam: (body) => request('/teams', { method: 'POST', body: JSON.stringify(body) }),
   getMyTeams: () => request('/teams/my'),

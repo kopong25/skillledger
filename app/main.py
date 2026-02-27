@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from app.routes import auth, candidates, teams
+from app.routes import auth, candidates, teams, admin, settings as settings_route
 import pathlib
 from app.config import get_settings
 from app.database import init_db, get_db
@@ -43,7 +43,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(candidates.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
-
+app.include_router(admin.router, prefix="/api")
+app.include_router(settings_route.router, prefix="/api")
 
 @app.get("/api/health", tags=["Health"])
 async def health():
