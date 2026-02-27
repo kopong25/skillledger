@@ -1,11 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-<Link to="/settings" className="text-sm text-slate-600 ...">Settings</Link>
-{user?.is_superadmin && (
-  <Link to="/admin" className="text-sm text-red-600 font-semibold ...">Admin</Link>
-)}
-
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +22,6 @@ export default function Navbar() {
           </div>
           <span className="font-bold text-slate-900 text-lg tracking-tight">SkillsLedger</span>
         </Link>
-
         <div className="flex items-center gap-3">
           {user ? (
             <>
@@ -40,6 +34,14 @@ export default function Navbar() {
               <Link to="/team" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 Team
               </Link>
+              <Link to="/settings" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                Settings
+              </Link>
+              {user?.is_superadmin && (
+                <Link to="/admin" className="text-sm text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                  Admin
+                </Link>
+              )}
               <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
                 <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
                   {user.name?.[0]?.toUpperCase()}
