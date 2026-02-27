@@ -1,6 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
+<Link to="/settings" className="text-sm text-slate-600 ...">Settings</Link>
+{user?.is_superadmin && (
+  <Link to="/admin" className="text-sm text-red-600 font-semibold ...">Admin</Link>
+)}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();

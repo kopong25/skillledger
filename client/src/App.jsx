@@ -8,6 +8,11 @@ import Dashboard from './pages/Dashboard';
 import Saved from './pages/Saved';
 import CandidateProfile from './pages/CandidateProfile';
 import Team from './pages/Team';
+import Admin from './pages/Admin';
+import Settings from './pages/Settings';
+
+<Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+<Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();

@@ -42,6 +42,15 @@ export const api = {
   updateSaved: (id, body) => request(`/candidates/save/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   removeSaved: (id) => request(`/candidates/save/${id}`, { method: 'DELETE' }),
 
+// Admin
+adminStats: () => request('/admin/stats'),
+adminUsers: () => request('/admin/users'),
+adminTeams: () => request('/admin/teams'),
+adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+// Settings
+getCompanySettings: () => request('/settings/company'),
+updateCompanySettings: (body) => request('/settings/company', { method: 'PUT', body: JSON.stringify(body) }),
+
   // Teams
   createTeam: (body) => request('/teams', { method: 'POST', body: JSON.stringify(body) }),
   getMyTeams: () => request('/teams/my'),
