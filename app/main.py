@@ -44,13 +44,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(candidates.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
 
-# ── TEMPORARY ROUTE - DELETE AFTER VISITING ──
-@app.get("/api/make-superadmin-kwadwo-secret")
-async def make_superadmin(db=Depends(get_db)):
-    await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN DEFAULT FALSE")
-    await db.execute("UPDATE users SET is_superadmin = TRUE WHERE email = 'koppong2005@yahoo.com'")
-    return {"done": True}
-# ── END TEMPORARY ROUTE ──
 
 @app.get("/api/health", tags=["Health"])
 async def health():
