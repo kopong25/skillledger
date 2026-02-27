@@ -11,9 +11,6 @@ import Team from './pages/Team';
 import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 
-<Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-<Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -41,6 +38,8 @@ export default function App() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/saved" element={<ProtectedRoute><Saved /></ProtectedRoute>} />
         <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/candidate/:username" element={<ProtectedRoute><CandidateProfile /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
