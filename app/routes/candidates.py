@@ -224,3 +224,43 @@ async def get_candidate(
         skills=skills,
         saved=dict(saved) if saved else None,
     )
+@router.get("/search/skill")
+async def search_by_skill(
+    skill: str,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    rows = await db.fetch(
+        """SELECT DISTINCT c.*, sp.confidence_score as top_score
+           FROM candidates c
+           JOIN skill_profiles sp ON sp.candidate_id = c.id
+           WHERE LOWER(sp.skill_name) LIKE LOWER($1)
+           ORDER BY sp.confidence_score DESC""",
+        f"%{skill}%",
+    )
+    result = []
+    for row in rows:
+        skills = await db.fetch(
+            """SELECT * FROM skill_profiles WHERE candidate_id = $1
+               ORDER BY confidence_score DESC LIMIT 6""",
+            row["id"],
+        )
+        result.append({
+            **dict(row),
+            "skills": [dict(s) for s in skills]
+        })
+    return result
+
+
+@router.get("/search/skills/all")
+async def get_all_known_skills(
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    rows = await db.fetch(
+        """SELECT skill_name, COUNT(*) as candidate_count
+           FROM skill_profiles
+           GROUP BY skill_name
+           ORDER BY candidate_count DESC"""
+    )
+    return [dict(r) for r in rows]

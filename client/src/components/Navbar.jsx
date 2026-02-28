@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
+const SUPERADMIN_EMAIL = 'koppong@zioncompassion.com';
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -11,7 +13,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-slate-100 sticky top-0 z-50 print:hidden">
+    <nav className="bg-white border-b border-slate-100 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link to={user ? '/dashboard' : '/'} className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -20,8 +22,9 @@ export default function Navbar() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span className="font-bold text-slate-900 text-lg tracking-tight">SkillsLedger</span>
+          <span className="font-bold text-slate-900 text-lg tracking-tight">SkillLedger</span>
         </Link>
+
         <div className="flex items-center gap-3">
           {user ? (
             <>
@@ -34,11 +37,8 @@ export default function Navbar() {
               <Link to="/team" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 Team
               </Link>
-              <Link to="/settings" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                Settings
-              </Link>
-              {user?.is_superadmin && (
-                <Link to="/admin" className="text-sm text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+              {user.email === SUPERADMIN_EMAIL && (
+                <Link to="/admin" className="text-sm text-purple-600 hover:text-purple-800 font-medium px-3 py-1.5 rounded-lg hover:bg-purple-50 transition-colors">
                   Admin
                 </Link>
               )}

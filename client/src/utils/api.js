@@ -41,6 +41,8 @@ export const api = {
   saveCandidate: (body) => request('/candidates/save', { method: 'POST', body: JSON.stringify(body) }),
   updateSaved: (id, body) => request(`/candidates/save/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   removeSaved: (id) => request(`/candidates/save/${id}`, { method: 'DELETE' }),
+  searchBySkill: (skill) => request('/candidates/search/skill?skill=' + encodeURIComponent(skill)),
+  getAllSkills: () => request('/candidates/search/skills/all'),
 
   // Teams
   createTeam: (body) => request('/teams', { method: 'POST', body: JSON.stringify(body) }),
@@ -51,12 +53,11 @@ export const api = {
   teamSaveCandidate: (teamId, body) => request(`/teams/${teamId}/save`, { method: 'POST', body: JSON.stringify(body) }),
   teamUpdateSaved: (teamId, candidateId, body) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   teamRemoveSaved: (teamId, candidateId) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'DELETE' }),
-// Admin
-  adminStats: () => request('/admin/stats'),
-  adminUsers: () => request('/admin/users'),
-  adminTeams: () => request('/admin/teams'),
-  adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
-  adminCandidates: (skill) => request(`/admin/candidates${skill ? `?skill=${skill}` : ''}`),
+
+  // Admin
+  getAdminStats: () => request('/admin/stats'),
+  getAdminUsers: () => request('/admin/users'),
+  deleteAdminUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 
   // Settings
   getCompanySettings: () => request('/settings/company'),

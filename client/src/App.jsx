@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Saved from './pages/Saved';
 import CandidateProfile from './pages/CandidateProfile';
 import Admin from './pages/Admin';
+import Team from './pages/Team';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ function AppRoutes() {
         <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/saved" element={<ProtectedRoute><Saved /></ProtectedRoute>} />
+        <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
         <Route path="/candidate/:username" element={<ProtectedRoute><CandidateProfile /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
