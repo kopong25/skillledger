@@ -57,6 +57,7 @@ export const api = {
   // Admin
   getAdminStats: () => request('/admin/stats'),
   getAdminUsers: () => request('/admin/users'),
+  adminTeams: () => request('/admin/teams'),
   deleteAdminUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 
   // Settings
