@@ -51,12 +51,12 @@ export const api = {
   teamSaveCandidate: (teamId, body) => request(`/teams/${teamId}/save`, { method: 'POST', body: JSON.stringify(body) }),
   teamUpdateSaved: (teamId, candidateId, body) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   teamRemoveSaved: (teamId, candidateId) => request(`/teams/${teamId}/save/${candidateId}`, { method: 'DELETE' }),
-
-  // Admin
+// Admin
   adminStats: () => request('/admin/stats'),
   adminUsers: () => request('/admin/users'),
   adminTeams: () => request('/admin/teams'),
   adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
+  adminCandidates: (skill) => request(`/admin/candidates${skill ? `?skill=${skill}` : ''}`),
 
   // Settings
   getCompanySettings: () => request('/settings/company'),

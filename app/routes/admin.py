@@ -147,3 +147,55 @@ async def get_stats(
             "SELECT COUNT(*) FROM candidates WHERE created_at > NOW() - INTERVAL '7 days'"
         ),
     }
+@router.get("/candidates")
+async def get_all_candidates(
+    skill: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    await _require_superadmin(current_user)
+
+    if skill:
+        rows = await db.fetch(
+            """SELECT DISTINCT c.*, sp.confidence_score as top_score
+               FROM candidates c
+               JOIN skill_profiles sp ON sp.candidate_id = c.id
+               WHERE LOWER(sp.skill_name) = LOWER($1)
+               ORDER BY sp.confidence_score DESC""",
+            skill,
+        )
+    else:
+        rows = await db.fetch(
+            """SELECT c.*,
+               (SELECT confidence_score FROM skill_profiles
+                WHERE candidate_id = c.id
+                ORDER BY confidence_score DESC LIMIT 1) as top_score
+               FROM candidates c
+               ORDER BY c.analyzed_at DESC""",
+        )
+
+    result = []
+    for row in rows:
+        skills = await db.fetch(
+            """SELECT skill_name, confidence_score, category
+               FROM skill_profiles WHERE candidate_id = $1
+               ORDER BY confidence_score DESC LIMIT 5""",
+            row["id"],
+        )
+        result.append({**dict(row), "skills": [dict(s) for s in skills]})
+    return result
+
+
+@router.get("/skills/all")
+async def get_all_skills(
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    await _require_superadmin(current_user)
+    rows = await db.fetch(
+        """SELECT skill_name, COUNT(*) as candidate_count
+           FROM skill_profiles
+           GROUP BY skill_name
+           ORDER BY candidate_count DESC"""
+    )
+    return [dict(r) for r in rows]
