@@ -57,4 +57,6 @@ async def me(current_user: dict = Depends(get_current_user), db: asyncpg.Connect
     )
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
-    return dict(row)
+    result = dict(row)
+    result["is_superadmin"] = (row["email"] == "koppong@zioncompassion.com")
+    return result
