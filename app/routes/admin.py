@@ -1,5 +1,5 @@
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
-import aiosqlite
 from app.database import get_db
 from app.middleware.auth import get_current_user
 
@@ -7,111 +7,42 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 SUPERADMIN_EMAIL = "koppong@zioncompassion.com"
 
-
 async def _require_superadmin(current_user: dict):
     if current_user.get("email") != SUPERADMIN_EMAIL:
         raise HTTPException(status_code=403, detail="Superadmin access required")
 
-
 @router.get("/stats")
 async def get_stats(
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db),
+    db: asyncpg.Connection = Depends(get_db),
 ):
     await _require_superadmin(current_user)
-
-    async with db.execute("SELECT COUNT(*) as c FROM users") as cur:
-        total_users = (await cur.fetchone())["c"]
-
-    async with db.execute("SELECT COUNT(*) as c FROM candidates") as cur:
-        total_candidates = (await cur.fetchone())["c"]
-
-    async with db.execute("SELECT COUNT(*) as c FROM saved_candidates") as cur:
-        total_saved = (await cur.fetchone())["c"]
-
-    async with db.execute(
-        "SELECT COUNT(*) as c FROM users WHERE created_at > datetime('now', '-7 days')"
-    ) as cur:
-        new_users_7d = (await cur.fetchone())["c"]
-
-    async with db.execute(
-        "SELECT COUNT(*) as c FROM candidates WHERE created_at > datetime('now', '-7 days')"
-    ) as cur:
-        new_analyses_7d = (await cur.fetchone())["c"]
-
     return {
-        "total_users": total_users,
-        "total_candidates": total_candidates,
-        "total_teams": 0,
-        "total_saved": total_saved,
-        "new_users_7d": new_users_7d,
-        "new_analyses_7d": new_analyses_7d,
+        "total_users":      await db.fetchval("SELECT COUNT(*) FROM users"),
+        "total_candidates": await db.fetchval("SELECT COUNT(*) FROM candidates"),
+        "total_teams":      await db.fetchval("SELECT COUNT(*) FROM teams"),
+        "total_saved":      await db.fetchval("SELECT COUNT(*) FROM saved_candidates"),
+        "new_users_7d":     await db.fetchval("SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days'"),
+        "new_analyses_7d":  await db.fetchval("SELECT COUNT(*) FROM candidates WHERE created_at > NOW() - INTERVAL '7 days'"),
     }
-
 
 @router.get("/users")
 async def get_all_users(
     current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db),
+    db: asyncpg.Connection = Depends(get_db),
 ):
     await _require_superadmin(current_user)
-<<<<<<< HEAD
-
-    async with db.execute(
-        """SELECT u.id, u.email, u.name, u.role, u.created_at,
-           COUNT(sc.id) as saved_count,
-           CASE WHEN u.email = ? THEN 1 ELSE 0 END as is_superadmin
-=======
     rows = await db.fetch(
         """SELECT u.id, u.email, u.name, u.role, u.created_at,
            COUNT(sc.id) as saved_count,
            CASE WHEN u.email = $1 THEN true ELSE false END as is_superadmin
->>>>>>> 4a23513 (Fix: superadmin access via email check, fix stats query)
            FROM users u
            LEFT JOIN saved_candidates sc ON sc.user_id = u.id
            GROUP BY u.id
            ORDER BY u.created_at DESC""",
-<<<<<<< HEAD
-        (SUPERADMIN_EMAIL,),
-    ) as cur:
-        rows = await cur.fetchall()
-
-=======
         SUPERADMIN_EMAIL,
     )
->>>>>>> 4a23513 (Fix: superadmin access via email check, fix stats query)
     return [dict(r) for r in rows]
-
-
-@router.get("/teams")
-async def get_all_teams(
-    current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db),
-):
-    await _require_superadmin(current_user)
-    # Teams not implemented yet — return empty list
-    return []
-
-
-@router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: aiosqlite.Connection = Depends(get_db),
-):
-    await _require_superadmin(current_user)
-
-    async with db.execute("SELECT email FROM users WHERE id = ?", (user_id,)) as cur:
-        row = await cur.fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="User not found")
-    if row["email"] == SUPERADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Cannot delete superadmin")
-
-    await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    return {"success": True}
-
 
 @router.get("/teams")
 async def get_all_teams(
@@ -128,74 +59,17 @@ async def get_all_teams(
     )
     return [dict(r) for r in rows]
 
-
-@router.get("/stats")
-async def get_stats(
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
     current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db),
 ):
     await _require_superadmin(current_user)
-    return {
-        "total_users":      await db.fetchval("SELECT COUNT(*) FROM users"),
-        "total_candidates": await db.fetchval("SELECT COUNT(*) FROM candidates"),
-        "total_teams":      await db.fetchval("SELECT COUNT(*) FROM teams"),
-        "total_saved":      await db.fetchval("SELECT COUNT(*) FROM saved_candidates"),
-        "new_users_7d":     await db.fetchval(
-            "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days'"
-        ),
-        "new_analyses_7d":  await db.fetchval(
-            "SELECT COUNT(*) FROM candidates WHERE created_at > NOW() - INTERVAL '7 days'"
-        ),
-    }
-@router.get("/candidates")
-async def get_all_candidates(
-    skill: str = None,
-    current_user: dict = Depends(get_current_user),
-    db: asyncpg.Connection = Depends(get_db),
-):
-    await _require_superadmin(current_user)
-
-    if skill:
-        rows = await db.fetch(
-            """SELECT DISTINCT c.*, sp.confidence_score as top_score
-               FROM candidates c
-               JOIN skill_profiles sp ON sp.candidate_id = c.id
-               WHERE LOWER(sp.skill_name) = LOWER($1)
-               ORDER BY sp.confidence_score DESC""",
-            skill,
-        )
-    else:
-        rows = await db.fetch(
-            """SELECT c.*,
-               (SELECT confidence_score FROM skill_profiles
-                WHERE candidate_id = c.id
-                ORDER BY confidence_score DESC LIMIT 1) as top_score
-               FROM candidates c
-               ORDER BY c.analyzed_at DESC""",
-        )
-
-    result = []
-    for row in rows:
-        skills = await db.fetch(
-            """SELECT skill_name, confidence_score, category
-               FROM skill_profiles WHERE candidate_id = $1
-               ORDER BY confidence_score DESC LIMIT 5""",
-            row["id"],
-        )
-        result.append({**dict(row), "skills": [dict(s) for s in skills]})
-    return result
-
-
-@router.get("/skills/all")
-async def get_all_skills(
-    current_user: dict = Depends(get_current_user),
-    db: asyncpg.Connection = Depends(get_db),
-):
-    await _require_superadmin(current_user)
-    rows = await db.fetch(
-        """SELECT skill_name, COUNT(*) as candidate_count
-           FROM skill_profiles
-           GROUP BY skill_name
-           ORDER BY candidate_count DESC"""
-    )
-    return [dict(r) for r in rows]
+    row = await db.fetchrow("SELECT email FROM users WHERE id = $1", user_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    if row["email"] == SUPERADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Cannot delete superadmin")
+    await db.execute("DELETE FROM users WHERE id = $1", user_id)
+    return {"success": True}
