@@ -43,9 +43,13 @@ export default function Navbar() {
                 </Link>
               )}
               <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
-                  {user.name?.[0]?.toUpperCase()}
-                </div>
+                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center 
+                justify-center text-xs font-bold">
+                 {user.name && typeof user.name === 'string' 
+                    ? user.name[0].toUpperCase()  : 
+                   '?'}
+                </div>                        
+               
                 <span className="text-sm text-slate-700 font-medium hidden sm:block">{user.name}</span>
                 <button onClick={handleLogout} className="text-sm text-slate-500 hover:text-red-600 ml-1 transition-colors">
                   Sign out
