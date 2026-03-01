@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 
 const SUPERADMIN_EMAIL = 'koppong@zioncompassion.com';
 
@@ -11,58 +11,76 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [skillSearch, setSkillSearch] = useState('');
-  const [skillResults, setSkillResults] = useState([]);
+  const [candidates, setCandidates] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [success, setSuccess] = useState('');
+  const [selectedSkill, setSelectedSkill] = useState('');
+  const [skillSearch, setSkillSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user || user.email !== SUPERADMIN_EMAIL) return;
-    loadAll();
-    api.getAllSkills().then(setAllSkills).catch(() => {});
+    if (user && user.email === SUPERADMIN_EMAIL) {
+      loadAll();
+    }
   }, [user]);
-
-  if (!user) return null;
-  if (user.email !== SUPERADMIN_EMAIL) return <Navigate to="/dashboard" replace />;
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [s, u, t] = await Promise.all([
-        api.getAdminStats(),
-        api.getAdminUsers(),
+      const [s, u, t, sk] = await Promise.all([
+        api.adminStats(),
+        api.adminUsers(),
         api.adminTeams(),
+        api.adminCandidates(),
       ]);
       setStats(s);
       setUsers(u);
       setTeams(t);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+      setCandidates(sk);
+      const token = localStorage.getItem('sl_token');
+      const skillsRes = await fetch('/api/admin/skills/all', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const skillsData = await skillsRes.json();
+      setAllSkills(skillsData);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSkillFilter(skill) {
+    setSelectedSkill(skill);
+    setCandidatesLoading(true);
+    try {
+      const data = await api.adminCandidates(skill);
+      setCandidates(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCandidatesLoading(false);
+    }
   }
 
   async function handleDeleteUser(userId, name) {
-    if (!confirm('Delete user "' + name + '"? This cannot be undone.')) return;
+    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
-      await api.deleteAdminUser(userId);
+      await api.adminDeleteUser(userId);
       setUsers(u => u.filter(x => x.id !== userId));
-      setSuccess('User deleted');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
-  async function handleSkillSearch(e) {
-    e.preventDefault();
-    if (!skillSearch.trim()) return;
-    setSearching(true);
-    try {
-      const data = await api.searchBySkill(skillSearch);
-      setSkillResults(data);
-    } catch (e) { setError(e.message); }
-    finally { setSearching(false); }
-  }
+  const filteredSkills = allSkills.filter(s =>
+    s.skill_name.toLowerCase().includes(skillSearch.toLowerCase())
+  );
+
+  // Guards AFTER all hooks
+  if (!user) return null;
+  if (user.email !== SUPERADMIN_EMAIL) return <Navigate to="/dashboard" replace />;
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -71,33 +89,36 @@ export default function Admin() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">SUPERADMIN</span>
-          <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">SUPERADMIN</span>
+            <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+          </div>
+          <p className="text-slate-500">Full platform overview and user management</p>
         </div>
-        <p className="text-slate-500">Full platform overview and user management</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-          {error}
-          <button onClick={() => setError('')} className="float-right font-bold">x</button>
-        </div>
-      )}
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-          {success}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="font-bold ml-4">x</button>
         </div>
       )}
 
       <div className="flex gap-2 mb-6 border-b border-slate-200">
-        {['stats', 'users', 'teams', 'skills'].map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={'px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors ' +
-              (tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800')}>
-            {t === 'skills' ? 'Skill Search' : t}
+        {[
+          { key: 'stats', label: 'Stats' },
+          { key: 'users', label: `Users (${users.length})` },
+          { key: 'candidates', label: `Candidates (${candidates.length})` },
+          { key: 'teams', label: `Teams (${teams.length})` },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}>
+            {t.label}
           </button>
         ))}
       </div>
@@ -105,16 +126,16 @@ export default function Admin() {
       {tab === 'stats' && stats && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { label: 'Total Users', val: stats.total_users },
-            { label: 'Total Analyses', val: stats.total_candidates },
-            { label: 'Total Teams', val: stats.total_teams },
-            { label: 'Total Saved', val: stats.total_saved },
-            { label: 'New Users (7d)', val: stats.new_users_7d },
-            { label: 'New Analyses (7d)', val: stats.new_analyses_7d },
+            { label: 'Total Users', val: stats.total_users, color: 'text-blue-600' },
+            { label: 'Total Analyses', val: stats.total_candidates, color: 'text-violet-600' },
+            { label: 'Total Teams', val: stats.total_teams, color: 'text-green-600' },
+            { label: 'Total Saved', val: stats.total_saved, color: 'text-amber-600' },
+            { label: 'New Users (7d)', val: stats.new_users_7d, color: 'text-blue-600' },
+            { label: 'New Analyses (7d)', val: stats.new_analyses_7d, color: 'text-violet-600' },
           ].map(s => (
             <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-5">
               <p className="text-sm text-slate-500 mb-1">{s.label}</p>
-              <p className="text-4xl font-bold text-slate-900">{s.val}</p>
+              <p className={`text-4xl font-bold ${s.color}`}>{s.val}</p>
             </div>
           ))}
         </div>
@@ -125,37 +146,117 @@ export default function Admin() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Role</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Joined</th>
-                <th className="px-4 py-3" />
+                {['#', 'Name', 'Email', 'Role', 'Saved', 'Joined', ''].map(h => (
+                  <th key={h} className="text-left px-4 py-3 font-medium text-slate-600">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map(u => (
+              {users.map((u, i) => (
                 <tr key={u.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 text-slate-400 text-xs">{i + 1}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
                   <td className="px-4 py-3 text-slate-500">{u.email}</td>
                   <td className="px-4 py-3">
                     {u.is_superadmin
-                      ? <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium">Superadmin</span>
-                      : <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">User</span>
-                    }
+                      ? <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold">Superadmin</span>
+                      : <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">Recruiter</span>}
                   </td>
+                  <td className="px-4 py-3 text-slate-600">{u.saved_count || 0}</td>
                   <td className="px-4 py-3 text-slate-400 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-right">
                     {!u.is_superadmin && (
                       <button onClick={() => handleDeleteUser(u.id, u.name)}
-                        className="text-xs text-red-400 hover:text-red-600 transition-colors">
-                        Delete
-                      </button>
+                        className="text-xs text-red-400 hover:text-red-600">Delete</button>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {users.length === 0 && <p className="text-center text-slate-400 py-10">No users yet</p>}
+        </div>
+      )}
+
+      {tab === 'candidates' && (
+        <div className="flex gap-6">
+          <div className="w-56 flex-shrink-0">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-3 py-2 border-b border-slate-200">
+                <input type="text" placeholder="Search skills..." value={skillSearch}
+                  onChange={e => setSkillSearch(e.target.value)}
+                  className="w-full text-sm px-2 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                <button onClick={() => handleSkillFilter('')}
+                  className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ${!selectedSkill ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'}`}>
+                  <span>All Skills</span>
+                  <span className="text-xs text-slate-400">{candidates.length}</span>
+                </button>
+                {filteredSkills.map(s => (
+                  <button key={s.skill_name} onClick={() => handleSkillFilter(s.skill_name)}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ${selectedSkill === s.skill_name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'}`}>
+                    <span>{s.skill_name}</span>
+                    <span className="text-xs text-slate-400">{s.candidate_count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1">
+            {selectedSkill && (
+              <div className="mb-4 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1 rounded-full">{selectedSkill}</span>
+                <span className="text-sm text-slate-500">{candidates.length} candidates found</span>
+                <button onClick={() => handleSkillFilter('')} className="text-xs text-slate-400 hover:text-slate-600 ml-1">x Clear</button>
+              </div>
+            )}
+            {candidatesLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {candidates.map(c => (
+                  <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <img src={c.avatar_url || `https://avatars.githubusercontent.com/${c.github_username}`}
+                        alt={c.display_name} className="w-10 h-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <Link to={`/candidate/${c.github_username}`}
+                              className="font-semibold text-slate-900 hover:text-blue-600">
+                              {c.display_name || c.github_username}
+                            </Link>
+                            <p className="text-xs text-slate-500">@{c.github_username}</p>
+                          </div>
+                          {c.top_score && (
+                            <span className="text-sm font-bold text-blue-600">{c.top_score}%</span>
+                          )}
+                        </div>
+                        {c.location && <p className="text-xs text-slate-400 mt-0.5">{c.location}</p>}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {(c.skills || []).map(s => (
+                            <span key={s.skill_name}
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.skill_name === selectedSkill ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                              {s.skill_name} {s.confidence_score}%
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {candidates.length === 0 && (
+                  <div className="text-center text-slate-400 py-16">
+                    No candidates found{selectedSkill ? ` with ${selectedSkill}` : ''}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -164,11 +265,9 @@ export default function Admin() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Team</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Owner</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Members</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Candidates</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Created</th>
+                {['Team', 'Owner', 'Members', 'Candidates', 'Created'].map(h => (
+                  <th key={h} className="text-left px-4 py-3 font-medium text-slate-600">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -185,78 +284,7 @@ export default function Admin() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {tab === 'skills' && (
-        <div>
-          <form onSubmit={handleSkillSearch} className="flex gap-2 mb-6">
-            <input
-              type="text"
-              value={skillSearch}
-              onChange={e => setSkillSearch(e.target.value)}
-              placeholder="Search by skill e.g. Python, React, TypeScript..."
-              className="flex-1 border border-slate-200 rounded-lg px-4 py-2 text-sm"
-              list="skills-list"
-            />
-            <datalist id="skills-list">
-              {allSkills.map(s => <option key={s.skill_name} value={s.skill_name} />)}
-            </datalist>
-            <button type="submit" disabled={searching}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-              {searching ? 'Searching...' : 'Search'}
-            </button>
-          </form>
-
-          {allSkills.length > 0 && skillResults.length === 0 && !searching && (
-            <div className="mb-6">
-              <p className="text-sm text-slate-500 mb-3">Top skills on platform:</p>
-              <div className="flex flex-wrap gap-2">
-                {allSkills.slice(0, 20).map(s => (
-                  <button key={s.skill_name}
-                    onClick={() => setSkillSearch(s.skill_name)}
-                    className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100">
-                    {s.skill_name} ({s.candidate_count})
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {skillResults.length > 0 && (
-            <div>
-              <p className="text-sm text-slate-500 mb-4">
-                {skillResults.length} candidate{skillResults.length !== 1 ? 's' : ''} with <strong>{skillSearch}</strong>
-              </p>
-              <div className="space-y-3">
-                {skillResults.map(c => (
-                  <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <a href={'/candidate/' + c.github_username}
-                          className="font-medium text-blue-600 hover:underline">
-                          {c.display_name || c.github_username}
-                        </a>
-                        <p className="text-xs text-slate-400">{'@' + c.github_username}</p>
-                      </div>
-                      <span className="text-sm font-bold text-blue-600">{c.top_score}%</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {c.skills && c.skills.map(s => (
-                        <span key={s.skill_name}
-                          className={'text-xs px-2 py-0.5 rounded-full ' +
-                            (s.skill_name.toLowerCase() === skillSearch.toLowerCase()
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-100 text-slate-600')}>
-                          {s.skill_name} {s.confidence_score}%
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {teams.length === 0 && <p className="text-center text-slate-400 py-10">No teams yet</p>}
         </div>
       )}
     </div>
