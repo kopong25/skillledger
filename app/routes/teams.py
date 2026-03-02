@@ -174,4 +174,152 @@ async def team_update_saved(
     return {"success": True}
 
 
-@router.delete("/{tea
+@router.delete("/{team_id}/save/{candidate_id}")
+async def team_remove_saved(
+    team_id: int,
+    candidate_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    await _check_team_access(team_id, current_user["id"], db)
+    await db.execute(
+        "DELETE FROM team_saved_candidates WHERE team_id = $1 AND candidate_id = $2",
+        team_id, candidate_id
+    )
+    return {"success": True}
+
+
+@router.post("/{team_id}/report")
+async def download_team_report(
+    team_id: int,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    await _check_team_access(team_id, current_user["id"], db)
+    team = await db.fetchrow("SELECT * FROM teams WHERE id = $1", team_id)
+    candidate_ids = body.get("candidate_ids", [])
+
+    if candidate_ids:
+        rows = await db.fetch(
+            """SELECT c.*, tsc.notes, tsc.status, tsc.saved_at, u.name as saved_by_name
+               FROM team_saved_candidates tsc
+               JOIN candidates c ON c.id = tsc.candidate_id
+               JOIN users u ON u.id = tsc.saved_by
+               WHERE tsc.team_id = $1 AND c.id = ANY($2::int[])
+               ORDER BY tsc.saved_at DESC""",
+            team_id, candidate_ids
+        )
+    else:
+        rows = await db.fetch(
+            """SELECT c.*, tsc.notes, tsc.status, tsc.saved_at, u.name as saved_by_name
+               FROM team_saved_candidates tsc
+               JOIN candidates c ON c.id = tsc.candidate_id
+               JOIN users u ON u.id = tsc.saved_by
+               WHERE tsc.team_id = $1
+               ORDER BY tsc.saved_at DESC""",
+            team_id
+        )
+
+    candidates = []
+    for row in rows:
+        skills = await db.fetch(
+            "SELECT * FROM skill_profiles WHERE candidate_id = $1 ORDER BY confidence_score DESC",
+            row["id"]
+        )
+        candidates.append({"info": dict(row), "skills": [dict(s) for s in skills]})
+
+    pdf_buffer = _generate_pdf(team["name"], candidates)
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=SkillsLedger-{team['name']}-report.pdf"}
+    )
+
+
+def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.enums import TA_CENTER
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=20*mm, leftMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    title_style = ParagraphStyle("title", fontSize=24, fontName="Helvetica-Bold",
+                                  textColor=colors.HexColor("#1d4ed8"), alignment=TA_CENTER)
+    sub_style = ParagraphStyle("sub", fontSize=12, fontName="Helvetica",
+                                textColor=colors.grey, alignment=TA_CENTER)
+    story.append(Paragraph("SkillsLedger", title_style))
+    story.append(Paragraph(f"Team Report: {team_name}", sub_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}", sub_style))
+    story.append(Spacer(1, 10*mm))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e2e8f0")))
+    story.append(Spacer(1, 6*mm))
+
+    if not candidates:
+        story.append(Paragraph("No candidates selected.", styles["Normal"]))
+    else:
+        for c in candidates:
+            info = c["info"]
+            skills = c["skills"]
+
+            name_style = ParagraphStyle("name", fontSize=14, fontName="Helvetica-Bold",
+                                         textColor=colors.HexColor("#1e293b"))
+            story.append(Paragraph(info.get("display_name") or info["github_username"], name_style))
+
+            link_style = ParagraphStyle("link", fontSize=9, fontName="Helvetica",
+                                         textColor=colors.HexColor("#3b82f6"))
+            story.append(Paragraph(
+                f'<a href="{info.get("github_url", "")}">{info.get("github_url", "")}</a>',
+                link_style
+            ))
+            meta_style = ParagraphStyle("meta", fontSize=9, textColor=colors.grey)
+            story.append(Paragraph(
+                f"{info.get('public_repos', 0)} repos · {info.get('followers', 0)} followers · "
+                f"Saved by: {info.get('saved_by_name', 'Unknown')} · Status: {info.get('status', 'reviewing')}",
+                meta_style
+            ))
+            story.append(Spacer(1, 3*mm))
+
+            if skills:
+                skill_data = [["Skill", "Category", "Confidence", "Repos", "Last Used"]]
+                for s in skills:
+                    skill_data.append([
+                        s["skill_name"],
+                        s["category"],
+                        f"{s['confidence_score']}%",
+                        str(s["repo_count"]),
+                        s.get("last_used") or "-"
+                    ])
+                table = Table(skill_data, colWidths=[45*mm, 30*mm, 30*mm, 20*mm, 40*mm])
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ("PADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 3*mm))
+
+            if info.get("notes"):
+                notes_style = ParagraphStyle("notes", fontSize=9, textColor=colors.HexColor("#475569"),
+                                              leftIndent=5*mm)
+                story.append(Paragraph(f"<b>Notes:</b> {info['notes']}", notes_style))
+                story.append(Spacer(1, 3*mm))
+
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e2e8f0")))
+            story.append(Spacer(1, 6*mm))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
