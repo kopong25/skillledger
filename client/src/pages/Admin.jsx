@@ -11,7 +11,6 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [candidates, setCandidates] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
   const [selectedSkill, setSelectedSkill] = useState('');
   const [skillSearch, setSkillSearch] = useState('');
@@ -25,31 +24,22 @@ export default function Admin() {
     }
   }, [user]);
 
-  async function loadAll() {
+async function loadAll() {
     setLoading(true);
     try {
-      const [s, u, t, sk] = await Promise.all([
+      const [s, u, t] = await Promise.all([
         api.getAdminStats(),
         api.getAdminUsers(),
         api.adminTeams(),
-        api.adminCandidates(),
       ]);
       setStats(s);
       setUsers(u);
       setTeams(t);
-      setCandidates(sk);
-      const token = localStorage.getItem('sl_token');
-      const skillsRes = await fetch('/api/admin/skills/all', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const skillsData = await skillsRes.json();
-      setAllSkills(skillsData);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+      api.getAllSkills().then(setAllSkills).catch(() => {});
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
   }
+  
 
   async function handleSkillFilter(skill) {
     setSelectedSkill(skill);
