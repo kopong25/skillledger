@@ -289,7 +289,7 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 6*mm))
 
     # Subtitle row
     story.append(Paragraph(
