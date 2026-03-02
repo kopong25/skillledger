@@ -29,8 +29,8 @@ export default function Admin() {
     setLoading(true);
     try {
       const [s, u, t, sk] = await Promise.all([
-        api.adminStats(),
-        api.adminUsers(),
+        api.getAdminStats(),
+        api.getAdminUsers(),
         api.adminTeams(),
         api.adminCandidates(),
       ]);
@@ -67,7 +67,7 @@ export default function Admin() {
   async function handleDeleteUser(userId, name) {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
-      await api.adminDeleteUser(userId);
+      await api.deleteAdminUser(userId);
       setUsers(u => u.filter(x => x.id !== userId));
     } catch (e) {
       setError(e.message);
