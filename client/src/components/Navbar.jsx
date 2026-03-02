@@ -37,6 +37,9 @@ export default function Navbar() {
               <Link to="/team" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 Team
               </Link>
+              <Link to="/settings" className="text-sm text-slate-600 hover:text-slate-900 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+               Settings
+              </Link>
               {user.email === SUPERADMIN_EMAIL && (
                 <Link to="/admin" className="text-sm text-purple-600 hover:text-purple-800 font-medium px-3 py-1.5 rounded-lg hover:bg-purple-50 transition-colors">
                   Admin
