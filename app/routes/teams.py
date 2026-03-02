@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+ import json
 import asyncpg
 from io import BytesIO
 from datetime import datetime
@@ -35,13 +36,16 @@ async def get_my_teams(
            ORDER BY t.created_at DESC""",
         current_user["id"]
     )
+   
     result = []
     for row in rows:
         d = dict(row)
-        d["members"] = d["members"] or []
+        members = d.get("members")
+        if isinstance(members, str):
+            members = json.loads(members)
+        d["members"] = members or []
         result.append(d)
     return result
-
 
 @router.post("", status_code=201)
 async def create_team(
