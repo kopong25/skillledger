@@ -11,6 +11,7 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [candidates, setCandidates] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
   const [selectedSkill, setSelectedSkill] = useState('');
   const [skillSearch, setSkillSearch] = useState('');
@@ -24,7 +25,7 @@ export default function Admin() {
     }
   }, [user]);
 
-async function loadAll() {
+  async function loadAll() {
     setLoading(true);
     try {
       const [s, u, t] = await Promise.all([
@@ -39,36 +40,29 @@ async function loadAll() {
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
-  
 
   async function handleSkillFilter(skill) {
     setSelectedSkill(skill);
     setCandidatesLoading(true);
     try {
-      const data = await api.adminCandidates(skill);
+      const data = await api.searchBySkill(skill || '');
       setCandidates(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setCandidatesLoading(false);
-    }
+    } catch (e) { setError(e.message); }
+    finally { setCandidatesLoading(false); }
   }
 
   async function handleDeleteUser(userId, name) {
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    if (!confirm('Delete user "' + name + '"? This cannot be undone.')) return;
     try {
       await api.deleteAdminUser(userId);
       setUsers(u => u.filter(x => x.id !== userId));
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
   }
 
   const filteredSkills = allSkills.filter(s =>
     s.skill_name.toLowerCase().includes(skillSearch.toLowerCase())
   );
 
-  // Guards AFTER all hooks
   if (!user) return null;
   if (user.email !== SUPERADMIN_EMAIL) return <Navigate to="/dashboard" replace />;
 
@@ -80,14 +74,12 @@ async function loadAll() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">SUPERADMIN</span>
-            <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
-          </div>
-          <p className="text-slate-500">Full platform overview and user management</p>
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-1">
+          <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">SUPERADMIN</span>
+          <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
         </div>
+        <p className="text-slate-500">Full platform overview and user management</p>
       </div>
 
       {error && (
@@ -100,14 +92,13 @@ async function loadAll() {
       <div className="flex gap-2 mb-6 border-b border-slate-200">
         {[
           { key: 'stats', label: 'Stats' },
-          { key: 'users', label: `Users (${users.length})` },
-          { key: 'candidates', label: `Candidates (${candidates.length})` },
-          { key: 'teams', label: `Teams (${teams.length})` },
+          { key: 'users', label: 'Users (' + users.length + ')' },
+          { key: 'candidates', label: 'Candidates (' + candidates.length + ')' },
+          { key: 'teams', label: 'Teams (' + teams.length + ')' },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}>
+            className={'px-4 py-2 text-sm font-medium border-b-2 transition-colors ' +
+              (tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800')}>
             {t.label}
           </button>
         ))}
@@ -125,7 +116,7 @@ async function loadAll() {
           ].map(s => (
             <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-5">
               <p className="text-sm text-slate-500 mb-1">{s.label}</p>
-              <p className={`text-4xl font-bold ${s.color}`}>{s.val}</p>
+              <p className={'text-4xl font-bold ' + s.color}>{s.val}</p>
             </div>
           ))}
         </div>
@@ -179,13 +170,15 @@ async function loadAll() {
               </div>
               <div className="max-h-96 overflow-y-auto">
                 <button onClick={() => handleSkillFilter('')}
-                  className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ${!selectedSkill ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'}`}>
+                  className={'w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ' +
+                    (!selectedSkill ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700')}>
                   <span>All Skills</span>
                   <span className="text-xs text-slate-400">{candidates.length}</span>
                 </button>
                 {filteredSkills.map(s => (
                   <button key={s.skill_name} onClick={() => handleSkillFilter(s.skill_name)}
-                    className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ${selectedSkill === s.skill_name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'}`}>
+                    className={'w-full text-left px-4 py-2.5 text-sm flex justify-between items-center hover:bg-slate-50 ' +
+                      (selectedSkill === s.skill_name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700')}>
                     <span>{s.skill_name}</span>
                     <span className="text-xs text-slate-400">{s.candidate_count}</span>
                   </button>
@@ -202,6 +195,12 @@ async function loadAll() {
                 <button onClick={() => handleSkillFilter('')} className="text-xs text-slate-400 hover:text-slate-600 ml-1">x Clear</button>
               </div>
             )}
+            {!selectedSkill && candidates.length === 0 && (
+              <div className="text-center text-slate-400 py-16">
+                <p className="text-base font-medium mb-2">Select a skill from the left</p>
+                <p className="text-sm">to see all candidates with that skill</p>
+              </div>
+            )}
             {candidatesLoading ? (
               <div className="flex justify-center py-12">
                 <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -211,16 +210,16 @@ async function loadAll() {
                 {candidates.map(c => (
                   <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
                     <div className="flex items-start gap-3">
-                      <img src={c.avatar_url || `https://avatars.githubusercontent.com/${c.github_username}`}
+                      <img src={c.avatar_url || 'https://avatars.githubusercontent.com/' + c.github_username}
                         alt={c.display_name} className="w-10 h-10 rounded-full flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <Link to={`/candidate/${c.github_username}`}
+                            <Link to={'/candidate/' + c.github_username}
                               className="font-semibold text-slate-900 hover:text-blue-600">
                               {c.display_name || c.github_username}
                             </Link>
-                            <p className="text-xs text-slate-500">@{c.github_username}</p>
+                            <p className="text-xs text-slate-500">{'@' + c.github_username}</p>
                           </div>
                           {c.top_score && (
                             <span className="text-sm font-bold text-blue-600">{c.top_score}%</span>
@@ -230,8 +229,9 @@ async function loadAll() {
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {(c.skills || []).map(s => (
                             <span key={s.skill_name}
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.skill_name === selectedSkill ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                              {s.skill_name} {s.confidence_score}%
+                              className={'text-xs px-2 py-0.5 rounded-full font-medium ' +
+                                (s.skill_name === selectedSkill ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600')}>
+                              {s.skill_name + ' ' + s.confidence_score + '%'}
                             </span>
                           ))}
                         </div>
@@ -239,9 +239,9 @@ async function loadAll() {
                     </div>
                   </div>
                 ))}
-                {candidates.length === 0 && (
+                {selectedSkill && candidates.length === 0 && !candidatesLoading && (
                   <div className="text-center text-slate-400 py-16">
-                    No candidates found{selectedSkill ? ` with ${selectedSkill}` : ''}
+                    No candidates found with {selectedSkill}
                   </div>
                 )}
               </div>
