@@ -36,7 +36,7 @@ async def get_my_teams(
            ORDER BY t.created_at DESC""",
         current_user["id"]
     )
-   
+
     result = []
     for row in rows:
         d = dict(row)
@@ -46,6 +46,7 @@ async def get_my_teams(
         d["members"] = members or []
         result.append(d)
     return result
+
 
 @router.post("", status_code=201)
 async def create_team(
@@ -247,82 +248,198 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
     from reportlab.lib.units import mm
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+    BLUE_DARK  = colors.HexColor("#1d4ed8")
+    BLUE_LIGHT = colors.HexColor("#eff6ff")
+    SLATE_DARK = colors.HexColor("#1e293b")
+    SLATE_MID  = colors.HexColor("#475569")
+    SLATE_LIGHT= colors.HexColor("#94a3b8")
+    BORDER     = colors.HexColor("#e2e8f0")
+    ROW_ALT    = colors.HexColor("#f8fafc")
+    WHITE      = colors.white
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            rightMargin=20*mm, leftMargin=20*mm,
-                            topMargin=20*mm, bottomMargin=20*mm)
-    styles = getSampleStyleSheet()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=22*mm, leftMargin=22*mm,
+        topMargin=22*mm, bottomMargin=22*mm
+    )
     story = []
 
-    title_style = ParagraphStyle("title", fontSize=24, fontName="Helvetica-Bold",
-                                  textColor=colors.HexColor("#1d4ed8"), alignment=TA_CENTER)
-    sub_style = ParagraphStyle("sub", fontSize=12, fontName="Helvetica",
-                                textColor=colors.grey, alignment=TA_CENTER)
-    story.append(Paragraph("SkillsLedger", title_style))
-    story.append(Paragraph(f"Team Report: {team_name}", sub_style))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}", sub_style))
-    story.append(Spacer(1, 10*mm))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e2e8f0")))
-    story.append(Spacer(1, 6*mm))
+    # ── HEADER BANNER ──────────────────────────────────────────────────────────
+    header_data = [[
+        Paragraph(
+            '<font size="22" color="#1d4ed8"><b>SkillsLedger</b></font>',
+            ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=22,
+                           textColor=BLUE_DARK, alignment=TA_LEFT)
+        ),
+        Paragraph(
+            f'<font size="9" color="#94a3b8">Generated {datetime.now().strftime("%B %d, %Y")}</font>',
+            ParagraphStyle("date", fontName="Helvetica", fontSize=9,
+                           textColor=SLATE_LIGHT, alignment=TA_RIGHT)
+        )
+    ]]
+    header_table = Table(header_data, colWidths=[110*mm, 56*mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+        ("TOPPADDING",    (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 3*mm))
+
+    # Subtitle row
+    story.append(Paragraph(
+        f'Team Report &mdash; <b>{team_name}</b>',
+        ParagraphStyle("subtitle", fontName="Helvetica", fontSize=12,
+                       textColor=SLATE_MID, alignment=TA_LEFT)
+    ))
+    story.append(Spacer(1, 4*mm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=BLUE_DARK))
+    story.append(Spacer(1, 8*mm))
+
+    # ── CANDIDATE COUNT SUMMARY ────────────────────────────────────────────────
+    story.append(Paragraph(
+        f'{len(candidates)} Candidate{"s" if len(candidates) != 1 else ""} in this report',
+        ParagraphStyle("count", fontName="Helvetica", fontSize=9,
+                       textColor=SLATE_LIGHT, alignment=TA_LEFT)
+    ))
+    story.append(Spacer(1, 5*mm))
 
     if not candidates:
-        story.append(Paragraph("No candidates selected.", styles["Normal"]))
+        story.append(Paragraph(
+            "No candidates selected.",
+            ParagraphStyle("empty", fontName="Helvetica", fontSize=11, textColor=SLATE_MID)
+        ))
     else:
-        for c in candidates:
-            info = c["info"]
+        for idx, c in enumerate(candidates, 1):
+            info   = c["info"]
             skills = c["skills"]
 
-            name_style = ParagraphStyle("name", fontSize=14, fontName="Helvetica-Bold",
-                                         textColor=colors.HexColor("#1e293b"))
-            story.append(Paragraph(info.get("display_name") or info["github_username"], name_style))
+            # ── CANDIDATE HEADER ──────────────────────────────────────────────
+            display = info.get("display_name") or info["github_username"]
+            status  = (info.get("status") or "reviewing").capitalize()
 
-            link_style = ParagraphStyle("link", fontSize=9, fontName="Helvetica",
-                                         textColor=colors.HexColor("#3b82f6"))
-            story.append(Paragraph(
-                f'<a href="{info.get("github_url", "")}">{info.get("github_url", "")}</a>',
-                link_style
-            ))
-            meta_style = ParagraphStyle("meta", fontSize=9, textColor=colors.grey)
-            story.append(Paragraph(
-                f"{info.get('public_repos', 0)} repos · {info.get('followers', 0)} followers · "
-                f"Saved by: {info.get('saved_by_name', 'Unknown')} · Status: {info.get('status', 'reviewing')}",
-                meta_style
-            ))
-            story.append(Spacer(1, 3*mm))
+            status_color = {
+                "Hired":      "#16a34a",
+                "Reviewing":  "#d97706",
+                "Rejected":   "#dc2626",
+                "Shortlisted":"#7c3aed",
+            }.get(status, "#475569")
 
+            name_status = [[
+                Paragraph(
+                    f'<font size="13"><b>{display}</b></font>',
+                    ParagraphStyle("cn", fontName="Helvetica-Bold", fontSize=13,
+                                   textColor=SLATE_DARK, alignment=TA_LEFT)
+                ),
+                Paragraph(
+                    f'<font size="8" color="{status_color}"><b>{status}</b></font>',
+                    ParagraphStyle("cs", fontName="Helvetica-Bold", fontSize=8,
+                                   textColor=colors.HexColor(status_color), alignment=TA_RIGHT)
+                )
+            ]]
+            ns_table = Table(name_status, colWidths=[110*mm, 56*mm])
+            ns_table.setStyle(TableStyle([
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+                ("TOPPADDING",    (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            story.append(ns_table)
+            story.append(Spacer(1, 1.5*mm))
+
+            # GitHub link
+            gh_url = info.get("github_url", "")
+            story.append(Paragraph(
+                f'<a href="{gh_url}"><font color="#3b82f6" size="9">{gh_url}</font></a>',
+                ParagraphStyle("link", fontName="Helvetica", fontSize=9)
+            ))
+            story.append(Spacer(1, 1.5*mm))
+
+            # Meta line
+            meta_parts = []
+            if info.get("public_repos") is not None:
+                meta_parts.append(f"{info['public_repos']} repos")
+            if info.get("followers") is not None:
+                meta_parts.append(f"{info['followers']} followers")
+            if info.get("saved_by_name"):
+                meta_parts.append(f"Saved by {info['saved_by_name']}")
+            story.append(Paragraph(
+                " · ".join(meta_parts),
+                ParagraphStyle("meta", fontName="Helvetica", fontSize=8, textColor=SLATE_LIGHT)
+            ))
+            story.append(Spacer(1, 4*mm))
+
+            # ── SKILLS TABLE ─────────────────────────────────────────────────
             if skills:
-                skill_data = [["Skill", "Category", "Confidence", "Repos", "Last Used"]]
+                skill_data = [[
+                    Paragraph("<b>Skill</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Category</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Confidence</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Repos</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Last Used</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                ]]
                 for s in skills:
                     skill_data.append([
-                        s["skill_name"],
-                        s["category"],
-                        f"{s['confidence_score']}%",
-                        str(s["repo_count"]),
-                        s.get("last_used") or "-"
+                        Paragraph(s["skill_name"], ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_DARK)),
+                        Paragraph(s.get("category") or "-", ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
+                        Paragraph(f"{s['confidence_score']}%", ParagraphStyle("td", fontName="Helvetica-Bold", fontSize=8, textColor=BLUE_DARK)),
+                        Paragraph(str(s["repo_count"]), ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
+                        Paragraph(str(s.get("last_used") or "-"), ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
                     ])
-                table = Table(skill_data, colWidths=[45*mm, 30*mm, 30*mm, 20*mm, 40*mm])
+
+                table = Table(skill_data, colWidths=[46*mm, 34*mm, 28*mm, 18*mm, 40*mm])
                 table.setStyle(TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                    ("PADDING", (0, 0), (-1, -1), 4),
+                    ("BACKGROUND",    (0, 0), (-1, 0),  BLUE_DARK),
+                    ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, ROW_ALT]),
+                    ("GRID",          (0, 0), (-1, -1), 0.4, BORDER),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+                    ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
                 ]))
                 story.append(table)
                 story.append(Spacer(1, 3*mm))
 
+            # ── NOTES ────────────────────────────────────────────────────────
             if info.get("notes"):
-                notes_style = ParagraphStyle("notes", fontSize=9, textColor=colors.HexColor("#475569"),
-                                              leftIndent=5*mm)
-                story.append(Paragraph(f"<b>Notes:</b> {info['notes']}", notes_style))
+                notes_box = [[
+                    Paragraph(
+                        f'<b>Notes:</b> {info["notes"]}',
+                        ParagraphStyle("notes", fontName="Helvetica", fontSize=8,
+                                       textColor=SLATE_MID)
+                    )
+                ]]
+                notes_table = Table(notes_box, colWidths=[166*mm])
+                notes_table.setStyle(TableStyle([
+                    ("BACKGROUND",    (0, 0), (-1, -1), BLUE_LIGHT),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("ROUNDEDCORNERS", [3]),
+                ]))
+                story.append(notes_table)
                 story.append(Spacer(1, 3*mm))
 
-            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e2e8f0")))
-            story.append(Spacer(1, 6*mm))
+            # ── DIVIDER ───────────────────────────────────────────────────────
+            story.append(Spacer(1, 3*mm))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER))
+            story.append(Spacer(1, 7*mm))
+
+    # ── FOOTER NOTE ───────────────────────────────────────────────────────────
+    story.append(Spacer(1, 4*mm))
+    story.append(Paragraph(
+        "Generated by SkillsLedger · Confidential",
+        ParagraphStyle("footer", fontName="Helvetica", fontSize=8,
+                       textColor=SLATE_LIGHT, alignment=TA_CENTER)
+    ))
 
     doc.build(story)
     buffer.seek(0)
