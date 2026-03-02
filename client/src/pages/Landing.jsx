@@ -296,6 +296,7 @@ export default function Landing() {
           <Link to="/login" style={{ fontSize: 13, color: '#475569', textDecoration: 'none' }}>Sign in</Link>
           <Link to="/register" style={{ fontSize: 13, color: '#475569', textDecoration: 'none' }}>Register</Link>
         </div>
+       <Link to="/legal" className="text-xs text-slate-400 hover:text-slate-600 mt-2 block">Terms · Privacy · Cookies</Link>
       </footer>
     </div>
   );

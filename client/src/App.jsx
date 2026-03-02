@@ -1,3 +1,5 @@
+// client/src/App.jsx - REPLACE ENTIRE FILE
+import Legal from './pages/Legal';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
@@ -22,7 +24,7 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function AppRoutes() {
+function AppContent() {
   const { user } = useAuth();
   return (
     <>
@@ -38,6 +40,7 @@ function AppRoutes() {
         <Route path="/candidate/:username" element={<ProtectedRoute><CandidateProfile /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/legal" element={<Legal />} />
       </Routes>
     </>
   );
@@ -47,7 +50,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <AppContent />
       </AuthProvider>
     </BrowserRouter>
   );
