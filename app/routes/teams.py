@@ -205,6 +205,12 @@ async def download_team_report(
     team = await db.fetchrow("SELECT * FROM teams WHERE id = $1", team_id)
     candidate_ids = body.get("candidate_ids", [])
 
+    # Fetch company settings for the current user
+    company = await db.fetchrow(
+        "SELECT * FROM company_settings WHERE user_id = $1", current_user["id"]
+    )
+    company_settings = dict(company) if company else {}
+
     if candidate_ids:
         rows = await db.fetch(
             """SELECT c.*, tsc.notes, tsc.status, tsc.saved_at, u.name as saved_by_name
@@ -234,7 +240,7 @@ async def download_team_report(
         )
         candidates.append({"info": dict(row), "skills": [dict(s) for s in skills]})
 
-    pdf_buffer = _generate_pdf(team["name"], candidates)
+    pdf_buffer = _generate_pdf(team["name"], candidates, company_settings)
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
@@ -242,22 +248,24 @@ async def download_team_report(
     )
 
 
-def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
+def _generate_pdf(team_name: str, candidates: list, company: dict) -> BytesIO:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    import base64
+    from io import BytesIO as BIO
 
-    BLUE_DARK  = colors.HexColor("#1d4ed8")
-    BLUE_LIGHT = colors.HexColor("#eff6ff")
-    SLATE_DARK = colors.HexColor("#1e293b")
-    SLATE_MID  = colors.HexColor("#475569")
-    SLATE_LIGHT= colors.HexColor("#94a3b8")
-    BORDER     = colors.HexColor("#e2e8f0")
-    ROW_ALT    = colors.HexColor("#f8fafc")
-    WHITE      = colors.white
+    BLUE_DARK   = colors.HexColor("#1d4ed8")
+    BLUE_LIGHT  = colors.HexColor("#eff6ff")
+    SLATE_DARK  = colors.HexColor("#1e293b")
+    SLATE_MID   = colors.HexColor("#475569")
+    SLATE_LIGHT = colors.HexColor("#94a3b8")
+    BORDER      = colors.HexColor("#e2e8f0")
+    ROW_ALT     = colors.HexColor("#f8fafc")
+    WHITE       = colors.white
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -267,22 +275,76 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
     )
     story = []
 
-    # ── HEADER BANNER ──────────────────────────────────────────────────────────
-    header_data = [[
+    # ── BUILD COMPANY BRANDING (top-right) ────────────────────────────────────
+    company_lines = []
+
+    # Logo
+    logo_element = None
+    logo_b64 = company.get("logo_base64", "")
+    if logo_b64 and "," in logo_b64:
+        try:
+            img_data = base64.b64decode(logo_b64.split(",", 1)[1])
+            img_buffer = BIO(img_data)
+            logo_element = Image(img_buffer, width=28*mm, height=14*mm, kind="proportional")
+            logo_element.hAlign = "RIGHT"
+        except Exception:
+            logo_element = None
+
+    if company.get("company_name"):
+        company_lines.append(
+            f'<font size="10" color="#1e293b"><b>{company["company_name"]}</b></font>'
+        )
+    if company.get("address"):
+        for line in company["address"].strip().split("\n"):
+            company_lines.append(f'<font size="8" color="#94a3b8">{line.strip()}</font>')
+    if company.get("phone"):
+        company_lines.append(f'<font size="8" color="#94a3b8">{company["phone"]}</font>')
+    if company.get("contact_email"):
+        company_lines.append(f'<font size="8" color="#94a3b8">{company["contact_email"]}</font>')
+    if company.get("website"):
+        company_lines.append(f'<font size="8" color="#3b82f6">{company["website"]}</font>')
+
+    right_col_items = []
+    if logo_element:
+        right_col_items.append(logo_element)
+        right_col_items.append(Spacer(1, 2*mm))
+    for line in company_lines:
+        right_col_items.append(
+            Paragraph(line, ParagraphStyle("cl", fontName="Helvetica", fontSize=8,
+                                           alignment=TA_RIGHT, leading=12))
+        )
+
+    # ── HEADER BANNER ─────────────────────────────────────────────────────────
+    # Left: SkillsLedger title + date
+    left_cell = [
         Paragraph(
             '<font size="22" color="#1d4ed8"><b>SkillsLedger</b></font>',
             ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=22,
                            textColor=BLUE_DARK, alignment=TA_LEFT)
         ),
+        Spacer(1, 2*mm),
         Paragraph(
             f'<font size="9" color="#94a3b8">Generated {datetime.now().strftime("%B %d, %Y")}</font>',
             ParagraphStyle("date", fontName="Helvetica", fontSize=9,
-                           textColor=SLATE_LIGHT, alignment=TA_RIGHT)
-        )
-    ]]
-    header_table = Table(header_data, colWidths=[110*mm, 56*mm])
+                           textColor=SLATE_LIGHT, alignment=TA_LEFT)
+        ),
+    ]
+
+    if right_col_items:
+        header_data = [[left_cell, right_col_items]]
+        header_table = Table(header_data, colWidths=[95*mm, 71*mm])
+    else:
+        header_data = [[left_cell,
+            Paragraph(
+                f'<font size="9" color="#94a3b8">Generated {datetime.now().strftime("%B %d, %Y")}</font>',
+                ParagraphStyle("date2", fontName="Helvetica", fontSize=9,
+                               textColor=SLATE_LIGHT, alignment=TA_RIGHT)
+            )
+        ]]
+        header_table = Table(header_data, colWidths=[110*mm, 56*mm])
+
     header_table.setStyle(TableStyle([
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING",   (0, 0), (-1, -1), 0),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
         ("TOPPADDING",    (0, 0), (-1, -1), 0),
@@ -291,7 +353,7 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
     story.append(header_table)
     story.append(Spacer(1, 6*mm))
 
-    # Subtitle row
+    # Subtitle
     story.append(Paragraph(
         f'Team Report &mdash; <b>{team_name}</b>',
         ParagraphStyle("subtitle", fontName="Helvetica", fontSize=12,
@@ -301,7 +363,7 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
     story.append(HRFlowable(width="100%", thickness=1.5, color=BLUE_DARK))
     story.append(Spacer(1, 8*mm))
 
-    # ── CANDIDATE COUNT SUMMARY ────────────────────────────────────────────────
+    # ── CANDIDATE COUNT ────────────────────────────────────────────────────────
     story.append(Paragraph(
         f'{len(candidates)} Candidate{"s" if len(candidates) != 1 else ""} in this report',
         ParagraphStyle("count", fontName="Helvetica", fontSize=9,
@@ -319,15 +381,13 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
             info   = c["info"]
             skills = c["skills"]
 
-            # ── CANDIDATE HEADER ──────────────────────────────────────────────
             display = info.get("display_name") or info["github_username"]
             status  = (info.get("status") or "reviewing").capitalize()
-
             status_color = {
-                "Hired":      "#16a34a",
-                "Reviewing":  "#d97706",
-                "Rejected":   "#dc2626",
-                "Shortlisted":"#7c3aed",
+                "Hired":       "#16a34a",
+                "Reviewing":   "#d97706",
+                "Rejected":    "#dc2626",
+                "Shortlisted": "#7c3aed",
             }.get(status, "#475569")
 
             name_status = [[
@@ -353,7 +413,6 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
             story.append(ns_table)
             story.append(Spacer(1, 1.5*mm))
 
-            # GitHub link
             gh_url = info.get("github_url", "")
             story.append(Paragraph(
                 f'<a href="{gh_url}"><font color="#3b82f6" size="9">{gh_url}</font></a>',
@@ -361,7 +420,6 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
             ))
             story.append(Spacer(1, 1.5*mm))
 
-            # Meta line
             meta_parts = []
             if info.get("public_repos") is not None:
                 meta_parts.append(f"{info['public_repos']} repos")
@@ -375,68 +433,65 @@ def _generate_pdf(team_name: str, candidates: list) -> BytesIO:
             ))
             story.append(Spacer(1, 4*mm))
 
-            # ── SKILLS TABLE ─────────────────────────────────────────────────
             if skills:
                 skill_data = [[
-                    Paragraph("<b>Skill</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
-                    Paragraph("<b>Category</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Skill</b>",      ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Category</b>",   ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
                     Paragraph("<b>Confidence</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
-                    Paragraph("<b>Repos</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
-                    Paragraph("<b>Last Used</b>", ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Repos</b>",      ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
+                    Paragraph("<b>Last Used</b>",  ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8, textColor=WHITE)),
                 ]]
                 for s in skills:
                     skill_data.append([
-                        Paragraph(s["skill_name"], ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_DARK)),
-                        Paragraph(s.get("category") or "-", ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
+                        Paragraph(s["skill_name"],              ParagraphStyle("td", fontName="Helvetica",      fontSize=8, textColor=SLATE_DARK)),
+                        Paragraph(s.get("category") or "-",    ParagraphStyle("td", fontName="Helvetica",      fontSize=8, textColor=SLATE_MID)),
                         Paragraph(f"{s['confidence_score']}%", ParagraphStyle("td", fontName="Helvetica-Bold", fontSize=8, textColor=BLUE_DARK)),
-                        Paragraph(str(s["repo_count"]), ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
-                        Paragraph(str(s.get("last_used") or "-"), ParagraphStyle("td", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)),
+                        Paragraph(str(s["repo_count"]),        ParagraphStyle("td", fontName="Helvetica",      fontSize=8, textColor=SLATE_MID)),
+                        Paragraph(str(s.get("last_used") or "-"), ParagraphStyle("td", fontName="Helvetica",   fontSize=8, textColor=SLATE_MID)),
                     ])
-
                 table = Table(skill_data, colWidths=[46*mm, 34*mm, 28*mm, 18*mm, 40*mm])
                 table.setStyle(TableStyle([
-                    ("BACKGROUND",    (0, 0), (-1, 0),  BLUE_DARK),
-                    ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, ROW_ALT]),
-                    ("GRID",          (0, 0), (-1, -1), 0.4, BORDER),
-                    ("TOPPADDING",    (0, 0), (-1, -1), 5),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                    ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
-                    ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                    ("BACKGROUND",     (0, 0), (-1, 0),  BLUE_DARK),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, ROW_ALT]),
+                    ("GRID",           (0, 0), (-1, -1), 0.4, BORDER),
+                    ("TOPPADDING",     (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING",  (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING",    (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING",   (0, 0), (-1, -1), 6),
+                    ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
                 ]))
                 story.append(table)
                 story.append(Spacer(1, 3*mm))
 
-            # ── NOTES ────────────────────────────────────────────────────────
             if info.get("notes"):
                 notes_box = [[
                     Paragraph(
                         f'<b>Notes:</b> {info["notes"]}',
-                        ParagraphStyle("notes", fontName="Helvetica", fontSize=8,
-                                       textColor=SLATE_MID)
+                        ParagraphStyle("notes", fontName="Helvetica", fontSize=8, textColor=SLATE_MID)
                     )
                 ]]
                 notes_table = Table(notes_box, colWidths=[166*mm])
                 notes_table.setStyle(TableStyle([
-                    ("BACKGROUND",    (0, 0), (-1, -1), BLUE_LIGHT),
-                    ("LEFTPADDING",   (0, 0), (-1, -1), 8),
-                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-                    ("TOPPADDING",    (0, 0), (-1, -1), 6),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ("ROUNDEDCORNERS", [3]),
+                    ("BACKGROUND",   (0, 0), (-1, -1), BLUE_LIGHT),
+                    ("LEFTPADDING",  (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING",   (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
                 ]))
                 story.append(notes_table)
                 story.append(Spacer(1, 3*mm))
 
-            # ── DIVIDER ───────────────────────────────────────────────────────
             story.append(Spacer(1, 3*mm))
             story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER))
             story.append(Spacer(1, 7*mm))
 
-    # ── FOOTER NOTE ───────────────────────────────────────────────────────────
+    # ── FOOTER ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 4*mm))
+    footer_text = "Generated by SkillsLedger · Confidential"
+    if company.get("company_name"):
+        footer_text = f"{company['company_name']} · {footer_text}"
     story.append(Paragraph(
-        "Generated by SkillsLedger · Confidential",
+        footer_text,
         ParagraphStyle("footer", fontName="Helvetica", fontSize=8,
                        textColor=SLATE_LIGHT, alignment=TA_CENTER)
     ))
