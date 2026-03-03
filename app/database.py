@@ -107,29 +107,27 @@ async def init_db():
             )
         """)
         await conn.execute("""
-    CREATE TABLE IF NOT EXISTS company_settings (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
-        company_name TEXT DEFAULT '',
-        logo_base64 TEXT DEFAULT '',
-        website TEXT DEFAULT '',
-        contact_email TEXT DEFAULT '',
-        address TEXT DEFAULT '',
-        phone TEXT DEFAULT '',
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-         )
-       """)
-
-      # Add missing columns to existing deployments
-      for col, col_type in [
-          ("logo_base64", "TEXT DEFAULT ''"),
-          ("address",     "TEXT DEFAULT ''"),
-          ("phone",       "TEXT DEFAULT ''"),
+            CREATE TABLE IF NOT EXISTS company_settings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                company_name TEXT DEFAULT '',
+                logo_base64 TEXT DEFAULT '',
+                website TEXT DEFAULT '',
+                contact_email TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        for col, col_type in [
+            ("logo_base64", "TEXT DEFAULT ''"),
+            ("address",     "TEXT DEFAULT ''"),
+            ("phone",       "TEXT DEFAULT ''"),
         ]:
-    await conn.execute(f"""
-        ALTER TABLE company_settings
-        ADD COLUMN IF NOT EXISTS {col} {col_type}
-    """)
+            await conn.execute(f"""
+                ALTER TABLE company_settings
+                ADD COLUMN IF NOT EXISTS {col} {col_type}
+            """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_candidates_github ON candidates(github_username)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_candidate ON skill_profiles(candidate_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_candidates(user_id)")
