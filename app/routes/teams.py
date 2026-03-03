@@ -343,9 +343,15 @@ def _generate_pdf(team_name: str, candidates: list, company: dict) -> BytesIO:
             img_data = base64.b64decode(logo_b64.split(",", 1)[1])
             img_io = BIO(img_data)
             logo_img = Image(img_io, width=22*mm, height=22*mm, kind="proportional")
-            logo_img.hAlign = "RIGHT"
-            right_items.append(logo_img)
-            right_items.append(Spacer(1, 3*mm))
+            logo_cell = Table([[logo_img]], colWidths=[66*mm])
+            logo_cell.setStyle(TableStyle([
+                ("ALIGN",         (0, 0), (-1, -1), "RIGHT"),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+                ("TOPPADDING",    (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]))
+            right_items.append(logo_cell)
         except Exception:
             pass
 
