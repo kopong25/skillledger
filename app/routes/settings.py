@@ -10,9 +10,11 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 class CompanySettingsUpdate(BaseModel):
     company_name: Optional[str] = ""
-    logo_url: Optional[str] = ""
+    logo_base64: Optional[str] = ""
     website: Optional[str] = ""
     contact_email: Optional[str] = ""
+    address: Optional[str] = ""
+    phone: Optional[str] = ""
 
 
 @router.get("/company")
@@ -24,7 +26,10 @@ async def get_company_settings(
         "SELECT * FROM company_settings WHERE user_id = $1", current_user["id"]
     )
     if not row:
-        return {"company_name": "", "logo_url": "", "website": "", "contact_email": ""}
+        return {
+            "company_name": "", "logo_base64": "", "website": "",
+            "contact_email": "", "address": "", "phone": ""
+        }
     return dict(row)
 
 
@@ -35,18 +40,23 @@ async def update_company_settings(
     db: asyncpg.Connection = Depends(get_db),
 ):
     await db.execute(
-        """INSERT INTO company_settings (user_id, company_name, logo_url, website, contact_email, updated_at)
-           VALUES ($1, $2, $3, $4, $5, NOW())
+        """INSERT INTO company_settings
+               (user_id, company_name, logo_base64, website, contact_email, address, phone, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT (user_id) DO UPDATE SET
-               company_name = EXCLUDED.company_name,
-               logo_url = EXCLUDED.logo_url,
-               website = EXCLUDED.website,
+               company_name  = EXCLUDED.company_name,
+               logo_base64   = EXCLUDED.logo_base64,
+               website       = EXCLUDED.website,
                contact_email = EXCLUDED.contact_email,
-               updated_at = NOW()""",
+               address       = EXCLUDED.address,
+               phone         = EXCLUDED.phone,
+               updated_at    = NOW()""",
         current_user["id"],
         body.company_name or "",
-        body.logo_url or "",
+        body.logo_base64 or "",
         body.website or "",
         body.contact_email or "",
+        body.address or "",
+        body.phone or "",
     )
     return {"success": True}

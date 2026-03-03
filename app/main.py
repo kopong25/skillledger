@@ -15,11 +15,13 @@ from app.database import init_db, get_db
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     print(f"SkillsLedger started — GitHub token: {'SET' if settings.github_token else 'NOT SET'}")
     yield
+
 
 app = FastAPI(
     title="SkillsLedger API",
@@ -31,6 +33,7 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,6 +48,7 @@ app.include_router(candidates.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(settings_route.router, prefix="/api")
+
 
 # ── TEMPORARY ROUTE - DELETE AFTER VISITING ──
 @app.get("/api/migrate-company-settings-secret")
@@ -61,7 +65,16 @@ async def migrate_company(db=Depends(get_db)):
         )
     """)
     return {"done": True}
-# ── END TEMPORARY ROUTE ──
+
+
+@app.get("/api/migrate-company-settings-v2-secret")
+async def migrate_company_v2(db=Depends(get_db)):
+    await db.execute("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS logo_base64 TEXT DEFAULT ''")
+    await db.execute("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''")
+    await db.execute("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''")
+    return {"done": True}
+# ── END TEMPORARY ROUTES ──
+
 
 @app.get("/api/health", tags=["Health"])
 async def health():
@@ -72,10 +85,12 @@ async def health():
         "version": settings.version,
     }
 
+
 # ── Serve React SPA (AFTER all API routes) ──
 CLIENT_DIST = pathlib.Path(__file__).parent.parent / "client" / "dist"
 if CLIENT_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(CLIENT_DIST / "assets")), name="assets")
+
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def serve_spa(full_path: str):
