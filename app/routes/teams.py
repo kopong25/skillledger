@@ -300,24 +300,12 @@ def _generate_pdf(team_name: str, candidates: list, company: dict) -> BytesIO:
         ),
     ]
 
-    # ── RIGHT COLUMN: Company branding ───────────────────────────────────────
+        # ── RIGHT COLUMN: Company branding ───────────────────────────────────────
     right_items = []
 
-    # Logo
-    logo_b64 = company.get("logo_base64", "")
-    if logo_b64 and "," in logo_b64:
-        try:
-            img_data = base64.b64decode(logo_b64.split(",", 1)[1])
-            img_io = BIO(img_data)
-            logo_img = Image(img_io, width=24*mm, height=24*mm, kind="proportional")
-            logo_img.hAlign = "RIGHT"
-            right_items.append(logo_img)
-            right_items.append(Spacer(1, 2*mm))
-        except Exception:
-            pass
-
+    company_text_lines = []
     if company.get("company_name"):
-        right_items.append(Paragraph(
+        company_text_lines.append(Paragraph(
             f"<b>{company['company_name']}</b>",
             style("cname", fontName="Helvetica-Bold", fontSize=9,
                   textColor=SLATE_DARK, alignment=TA_RIGHT)
@@ -325,29 +313,43 @@ def _generate_pdf(team_name: str, candidates: list, company: dict) -> BytesIO:
     if company.get("address"):
         for line in company["address"].strip().split("\n"):
             if line.strip():
-                right_items.append(Paragraph(
+                company_text_lines.append(Paragraph(
                     line.strip(),
                     style("caddr", fontName="Helvetica", fontSize=8,
                           textColor=SLATE_MID, alignment=TA_RIGHT, leading=11)
                 ))
     if company.get("phone"):
-        right_items.append(Paragraph(
+        company_text_lines.append(Paragraph(
             company["phone"],
             style("cphone", fontName="Helvetica", fontSize=8,
                   textColor=SLATE_MID, alignment=TA_RIGHT, leading=11)
         ))
     if company.get("contact_email"):
-        right_items.append(Paragraph(
+        company_text_lines.append(Paragraph(
             company["contact_email"],
             style("cemail", fontName="Helvetica", fontSize=8,
                   textColor=SLATE_MID, alignment=TA_RIGHT, leading=11)
         ))
     if company.get("website"):
-        right_items.append(Paragraph(
+        company_text_lines.append(Paragraph(
             company["website"],
             style("cweb", fontName="Helvetica", fontSize=8,
                   textColor=BLUE_DARK, alignment=TA_RIGHT, leading=11)
         ))
+
+    logo_b64 = company.get("logo_base64", "")
+    if logo_b64 and "," in logo_b64:
+        try:
+            img_data = base64.b64decode(logo_b64.split(",", 1)[1])
+            img_io = BIO(img_data)
+            logo_img = Image(img_io, width=22*mm, height=22*mm, kind="proportional")
+            logo_img.hAlign = "RIGHT"
+            right_items.append(logo_img)
+            right_items.append(Spacer(1, 3*mm))
+        except Exception:
+            pass
+
+    right_items.extend(company_text_lines)
 
     # ── ASSEMBLE HEADER TABLE ─────────────────────────────────────────────────
     header_data = [[left_items, right_items if right_items else ""]]
